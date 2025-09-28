@@ -70,7 +70,7 @@ public actor SearchEngine {
         }
 
         // Check if we have a reference
-        guard let reference = documents[documentId] else {
+        guard documents[documentId] != nil else {
             return nil
         }
 
@@ -687,9 +687,9 @@ private struct DocumentReference: Sendable {
 
     init(from document: DocumentModel) {
         self.id = document.id
-        self.title = document.title ?? "Untitled"
-        self.filePath = document.filePath
-        self.lastModified = document.lastModified ?? Date()
+        self.title = document.metadata.title ?? "Untitled"
+        self.filePath = document.reference.url
+        self.lastModified = document.reference.lastModified
         self.outline = document.outline.map { HeadingReference(from: $0) }
         self.contentLength = document.content.count
     }
@@ -701,7 +701,7 @@ private struct HeadingReference: Sendable {
     let title: String
     let range: NSRange
 
-    init(from heading: HeadingModel) {
+    init(from heading: HeadingItem) {
         self.level = heading.level
         self.title = heading.title
         self.range = heading.range

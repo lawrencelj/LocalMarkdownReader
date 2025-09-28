@@ -96,12 +96,34 @@ public actor MemoryBenchmark {
 
         for i in 0..<count {
             let content = generateMarkdownContent(sizeKB: sizeKB, index: i)
-            let document = DocumentModel(
-                id: UUID(),
+            let url = URL(string: "test://document\(i).md")!
+
+            let reference = DocumentReference(
+                url: url,
+                lastModified: Date(),
+                fileSize: Int64(content.count)
+            )
+
+            let attributedContent = AttributedString(content)
+
+            let metadata = DocumentMetadata(
                 title: "Test Document \(i + 1)",
+                wordCount: content.components(separatedBy: .whitespacesAndNewlines).count,
+                characterCount: content.count,
+                lineCount: content.components(separatedBy: .newlines).count,
+                estimatedReadingTime: DocumentMetadata.calculateReadingTime(wordCount: content.components(separatedBy: .whitespacesAndNewlines).count),
+                lastModified: Date(),
+                fileSize: Int64(content.count)
+            )
+
+            let outline: [HeadingItem] = []
+
+            let document = DocumentModel(
+                reference: reference,
                 content: content,
-                filePath: URL(string: "test://document\(i).md")!,
-                lastModified: Date()
+                attributedContent: attributedContent,
+                metadata: metadata,
+                outline: outline
             )
             documents.append(document)
         }
@@ -223,7 +245,7 @@ public actor MemoryBenchmark {
 
         for query in queries {
             let startTime = CFAbsoluteTimeGetCurrent()
-            let results = await searchEngine.search(query: query)
+            _ = await searchEngine.search(query: query)
             let endTime = CFAbsoluteTimeGetCurrent()
 
             times.append(endTime - startTime)

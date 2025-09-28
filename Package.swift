@@ -25,9 +25,7 @@ let package = Package(
         // Swift Markdown for CommonMark parsing with GFM extensions
         .package(url: "https://github.com/swiftlang/swift-markdown.git", from: "0.3.0"),
         // Collections for efficient data structures
-        .package(url: "https://github.com/apple/swift-collections.git", from: "1.1.0"),
-        // Dependencies for enhanced functionality
-        .package(url: "https://github.com/apple/swift-syntax.git", from: "509.0.0")
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.1.0")
     ],
     targets: [
         // MARK: - Application Targets

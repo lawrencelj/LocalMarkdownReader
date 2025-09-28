@@ -103,7 +103,7 @@ public actor MarkdownParser {
         }
 
         // Parse using swift-markdown
-        let document = Document(parsing: content, options: await buildParsingOptions())
+        let document = Document(parsing: content, options: buildParsingOptions())
 
         // Convert to AttributedString with custom renderer
         let renderer = AttributedStringRenderer(configuration: configuration)
@@ -113,7 +113,7 @@ public actor MarkdownParser {
     /// Extract document outline (headings)
     public func extractOutline(from content: String) async throws -> [HeadingItem] {
         return try await performanceMonitor.trackOperation("extract_outline") {
-            let document = Document(parsing: content, options: await buildParsingOptions())
+            let document = Document(parsing: content, options: buildParsingOptions())
             let extractor = ContentExtractor()
             return try await extractor.extractHeadings(from: document, content: content)
         }
@@ -122,7 +122,7 @@ public actor MarkdownParser {
     /// Extract document metadata
     public func extractMetadata(from content: String, reference: DocumentReference) async throws -> DocumentMetadata {
         return try await performanceMonitor.trackOperation("extract_metadata") {
-            let document = Document(parsing: content, options: await buildParsingOptions())
+            let document = Document(parsing: content, options: buildParsingOptions())
             let extractor = ContentExtractor()
             return try await extractor.extractMetadata(from: document, content: content, reference: reference)
         }
@@ -130,7 +130,7 @@ public actor MarkdownParser {
 
     // MARK: - Private Implementation
 
-    private func buildParsingOptions() -> ParseOptions {
+    nonisolated private func buildParsingOptions() -> ParseOptions {
         var options = ParseOptions()
 
         if configuration.enableGitHubFlavoredMarkdown {

@@ -42,7 +42,7 @@ public struct ContentHighlighter: Sendable {
 
     private let configuration: Configuration
     /// Memory-efficient attributed string cache
-    private static var highlightCache: [String: NSMutableAttributedString] = [:]
+    @MainActor private static var highlightCache: [String: NSMutableAttributedString] = [:]
     private static let cacheLimit = 50  // Limit cache size to prevent memory bloat
 
     public init(configuration: Configuration = .default) {
@@ -342,7 +342,7 @@ public struct LazyHighlightedSearchResult: Identifiable {
 
 extension ContentHighlighter {
     /// Batch highlight multiple contents efficiently - memory optimized
-    public func batchHighlight(
+    @MainActor public func batchHighlight(
         contents: [(NSAttributedString, String)],
         configuration: Configuration? = nil,
         batchSize: Int = 10  // Process in smaller batches to prevent memory spikes
@@ -372,17 +372,17 @@ extension ContentHighlighter {
     }
 
     /// Clear highlighting cache to free memory
-    public static func clearCache() {
+    @MainActor public static func clearCache() {
         highlightCache.removeAll()
     }
 
     /// Get cache statistics for monitoring
-    public static func getCacheStats() -> (count: Int, limit: Int) {
+    @MainActor public static func getCacheStats() -> (count: Int, limit: Int) {
         return (count: highlightCache.count, limit: cacheLimit)
     }
 
     /// Asynchronous highlighting for large content
-    public func highlightMatchesAsync(
+    @MainActor public func highlightMatchesAsync(
         in content: NSAttributedString,
         query: String
     ) async -> NSAttributedString {
