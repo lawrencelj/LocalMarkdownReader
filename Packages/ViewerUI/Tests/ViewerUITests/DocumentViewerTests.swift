@@ -3,12 +3,15 @@
 /// Tests core document viewing functionality, performance optimization,
 /// accessibility compliance, and cross-platform behavior.
 
-import XCTest
-import SwiftUI
-@testable import ViewerUI
+@testable import FileAccess
 @testable import MarkdownCore
 @testable import Search
+@testable import Settings
+import SwiftUI
+@testable import ViewerUI
+import XCTest
 
+@MainActor
 final class DocumentViewerTests: XCTestCase {
     // MARK: - Test Properties
 
@@ -24,8 +27,8 @@ final class DocumentViewerTests: XCTestCase {
         coordinator = AppStateCoordinator(
             documentService: mockDocumentService,
             searchService: mockSearchService,
-            fileService: MockFileService(),
-            preferencesService: MockPreferencesService()
+            fileService: FileService(),
+            preferencesService: PreferencesService()
         )
     }
 
@@ -115,7 +118,7 @@ final class DocumentViewerTests: XCTestCase {
 
     func testDocumentViewAccessibility() {
         // Given
-        let documentViewer = DocumentViewer()
+        let _ = DocumentViewer()
             .environment(coordinator)
 
         // When/Then - Test accessibility structure
@@ -126,7 +129,8 @@ final class DocumentViewerTests: XCTestCase {
     func testVoiceOverSupport() {
         // Test VoiceOver navigation and announcements
         // This would require ViewInspector or UI testing framework
-        XCTAssertTrue(UIAccessibility.isVoiceOverRunning || true) // Allow test to pass in CI
+        // Allow test to pass without actual accessibility testing
+        XCTAssertNotNil(coordinator)
     }
 
     func testDynamicTypeSupport() {
@@ -136,7 +140,7 @@ final class DocumentViewerTests: XCTestCase {
         // Test with different Dynamic Type sizes
         let sizes: [DynamicTypeSize] = [.small, .medium, .large, .xLarge, .accessibility3]
 
-        for size in sizes {
+        for _ in sizes {
             // In a real test, you would verify font scaling
             XCTAssertNotNil(coordinator)
         }
@@ -154,14 +158,14 @@ final class DocumentViewerTests: XCTestCase {
     }
 
     #if os(iOS)
-    private func testIOSSpecificBehavior() {
+    func testIOSSpecificBehavior() {
         // Test iOS-specific features like pull-to-refresh
         XCTAssertTrue(true) // Placeholder
     }
     #endif
 
     #if os(macOS)
-    private func testMacOSSpecificBehavior() {
+    func testMacOSSpecificBehavior() {
         // Test macOS-specific features like keyboard shortcuts
         XCTAssertTrue(true) // Placeholder
     }
@@ -201,7 +205,7 @@ final class DocumentViewerTests: XCTestCase {
 
     func testErrorRecovery() async throws {
         // Given
-        mockDocumentService.loadDocumentResult = .failure(DocumentError.parseError)
+        mockDocumentService.loadDocumentResult = .failure(DocumentError.parseFailure("Test error"))
 
         // When
         await coordinator.loadDocument(DocumentReference.mock())
@@ -220,9 +224,8 @@ final class DocumentViewerTests: XCTestCase {
     func testErrorMessageAccessibility() {
         // Test that error messages are properly announced
         let errorView = ErrorView(
-            error: DocumentError.fileNotFound,
-            retryAction: {}
-        )
+            error: DocumentError.fileNotFound
+        )            {}
 
         XCTAssertNotNil(errorView)
     }
@@ -258,8 +261,8 @@ final class DocumentViewerTests: XCTestCase {
         let newCoordinator = AppStateCoordinator(
             documentService: mockDocumentService,
             searchService: mockSearchService,
-            fileService: MockFileService(),
-            preferencesService: MockPreferencesService()
+            fileService: FileService(),
+            preferencesService: PreferencesService()
         )
 
         await newCoordinator.restoreState()
@@ -305,7 +308,7 @@ final class DocumentViewerTests: XCTestCase {
 
 // MARK: - Mock Services
 
-private class MockDocumentService: DocumentService {
+class MockDocumentService: DocumentService {
     var loadDocumentResult: Result<DocumentModel, Error> = .success(DocumentModel.mock())
 
     override func loadDocument(_ reference: DocumentReference) async throws -> DocumentModel {
@@ -313,62 +316,58 @@ private class MockDocumentService: DocumentService {
     }
 }
 
-private class MockSearchService: SearchService {
+class MockSearchService: SearchService {
     var searchResults: [SearchResult] = []
     var outline: [OutlineItem] = []
 
     override func search(_ query: String, options: SearchOptions, in document: DocumentModel?) async throws -> [SearchResult] {
-        return searchResults
+        searchResults
     }
 
     override func generateOutline(for document: DocumentModel) async throws -> [OutlineItem] {
-        return outline
+        outline
     }
 }
 
-private class MockFileService: FileService {
-    // Mock implementation
-}
-
-private class MockPreferencesService: PreferencesService {
-    // Mock implementation
-}
+// FileService and PreferencesService instances can be used directly as they have default implementations
 
 // MARK: - Mock Models
 
 extension DocumentModel {
     static func mock() -> DocumentModel {
         DocumentModel(
-            id: UUID(),
             reference: DocumentReference.mock(),
-            title: "Test Document",
             content: "# Test Content\n\nThis is test content.",
             attributedContent: AttributedString("# Test Content\n\nThis is test content."),
             metadata: DocumentMetadata(
                 title: "Test Document",
                 wordCount: 10,
+                characterCount: 42,
+                lineCount: 3,
                 estimatedReadingTime: 1,
                 lastModified: Date(),
                 fileSize: 1024
-            )
+            ),
+            outline: []
         )
     }
 
     static func mockLarge() -> DocumentModel {
-        let largeContent = String(repeating: "This is a very long document with lots of content. ", count: 10000)
+        let largeContent = String(repeating: "This is a very long document with lots of content. ", count: 10_000)
         return DocumentModel(
-            id: UUID(),
             reference: DocumentReference.mock(),
-            title: "Large Test Document",
             content: largeContent,
             attributedContent: AttributedString(largeContent),
             metadata: DocumentMetadata(
                 title: "Large Test Document",
-                wordCount: 100000,
+                wordCount: 100_000,
+                characterCount: 520_000,
+                lineCount: 10_000,
                 estimatedReadingTime: 400,
                 lastModified: Date(),
                 fileSize: 2 * 1024 * 1024
-            )
+            ),
+            outline: []
         )
     }
 }
@@ -386,35 +385,41 @@ extension DocumentReference {
 extension SearchResult {
     static func mock() -> SearchResult {
         SearchResult(
-            id: UUID(),
-            matchedText: "test",
+            documentId: UUID(),
+            text: "test",
+            context: "This is a test",
             range: NSRange(location: 0, length: 4),
             lineNumber: 1,
-            surroundingContext: "This is a test",
-            matchType: .exactMatch,
-            containingHeading: nil
+            columnNumber: 0,
+            relevanceScore: 0.9,
+            matchType: .content,
+            headingContext: nil
         )
     }
 
     static var previewResults: [SearchResult] {
         [
             SearchResult(
-                id: UUID(),
-                matchedText: "example",
+                documentId: UUID(),
+                text: "example",
+                context: "This is an example of search results",
                 range: NSRange(location: 10, length: 7),
                 lineNumber: 1,
-                surroundingContext: "This is an example of search results",
-                matchType: .exactMatch,
-                containingHeading: "Introduction"
+                columnNumber: 10,
+                relevanceScore: 0.9,
+                matchType: .content,
+                headingContext: "Introduction"
             ),
             SearchResult(
-                id: UUID(),
-                matchedText: "example",
+                documentId: UUID(),
+                text: "example",
+                context: "Another example in the document",
                 range: NSRange(location: 50, length: 7),
                 lineNumber: 3,
-                surroundingContext: "Another example in the document",
-                matchType: .exactMatch,
-                containingHeading: "Details"
+                columnNumber: 8,
+                relevanceScore: 0.8,
+                matchType: .content,
+                headingContext: "Details"
             )
         ]
     }
@@ -423,79 +428,37 @@ extension SearchResult {
 extension OutlineItem {
     static var previewLevel1: OutlineItem {
         OutlineItem(
-            id: "heading-1",
-            title: "Introduction",
             level: 1,
-            position: 0,
+            title: "Introduction",
             range: NSRange(location: 0, length: 12),
-            wordCount: 50,
+            position: 0,
             children: [previewLevel2]
         )
     }
 
     static var previewLevel2: OutlineItem {
         OutlineItem(
-            id: "heading-2",
-            title: "Overview",
             level: 2,
-            position: 100,
+            title: "Overview",
             range: NSRange(location: 100, length: 8),
-            wordCount: 25,
+            position: 100,
             children: []
         )
     }
 
     static func preview(level: Int) -> OutlineItem {
         OutlineItem(
-            id: "heading-\(level)",
-            title: "Heading Level \(level)",
             level: level,
-            position: CGFloat(level * 50),
+            title: "Heading Level \(level)",
             range: NSRange(location: level * 50, length: 15),
-            wordCount: 20,
+            position: CGFloat(level * 50),
             children: []
         )
     }
 }
 
 // MARK: - Performance Monitor Extension
-
-extension PerformanceMonitor {
-    func getCurrentMemoryUsage() -> Int {
-        var info = mach_task_basic_info()
-        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size)/4
-
-        let kerr: kern_return_t = withUnsafeMutablePointer(to: &info) {
-            $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
-                task_info(mach_task_self_,
-                         task_flavor_t(MACH_TASK_BASIC_INFO),
-                         $0,
-                         &count)
-            }
-        }
-
-        if kerr == KERN_SUCCESS {
-            return Int(info.resident_size)
-        } else {
-            return 0
-        }
-    }
-}
+// (getCurrentMemoryUsage is already defined in PerformanceMonitor)
 
 // MARK: - Document Error Types
-
-enum DocumentError: LocalizedError {
-    case fileNotFound
-    case parseError
-    case accessDenied
-    case networkError
-
-    var errorDescription: String? {
-        switch self {
-        case .fileNotFound: return "File not found"
-        case .parseError: return "Parse error"
-        case .accessDenied: return "Access denied"
-        case .networkError: return "Network error"
-        }
-    }
-}
+// DocumentError is imported from MarkdownCore

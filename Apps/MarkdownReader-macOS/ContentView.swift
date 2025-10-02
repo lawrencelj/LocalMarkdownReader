@@ -4,11 +4,12 @@
 /// menu bar integration, keyboard shortcuts, and platform-specific features.
 /// Follows macOS Human Interface Guidelines and ADR-002 specifications.
 
-import SwiftUI
-import ViewerUI
-import MarkdownCore
 import FileAccess
+import MarkdownCore
+import Settings
+import SwiftUI
 import UniformTypeIdentifiers
+import ViewerUI
 
 /// Main macOS application interface with three-column layout
 struct ContentView: View {
@@ -137,7 +138,7 @@ struct ContentView: View {
                 .frame(minWidth: 250, idealWidth: 300)
 
         case .search:
-            SearchInterface()
+            SearchInterface(coordinator: coordinator)
                 .navigationTitle("Search")
                 .frame(minWidth: 300, idealWidth: 350)
 
@@ -171,24 +172,42 @@ struct ContentView: View {
     // MARK: - Detail View
 
     private var detailView: some View {
-        Group {
-            if coordinator.documentState.currentDocument != nil {
-                DocumentViewer()
-                    .navigationTitle(documentTitle)
-                    .navigationSubtitle(documentSubtitle)
-                    .toolbar {
-                        documentToolbar
-                    }
-            } else {
-                EmptyStateView.noDocument(
-                    onOpenDocument: {
+        VStack(spacing: 0) {
+            // Tab bar (only show if there are open tabs)
+            if !coordinator.tabState.tabs.isEmpty {
+                TabBarView(
+                    tabState: coordinator.tabState,
+                    onNewTab: {
                         showingDocumentPicker = true
-                    },
-                    onBrowseRecent: {
-                        sidebarSelection = .recent
                     }
                 )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .onChange(of: coordinator.tabState.activeTabId) { _, newActiveId in
+                    if let newActiveId = newActiveId {
+                        coordinator.switchToTab(newActiveId)
+                    }
+                }
+            }
+
+            // Document viewer or empty state
+            Group {
+                if coordinator.documentState.currentDocument != nil {
+                    DocumentViewer()
+                        .navigationTitle(documentTitle)
+                        .navigationSubtitle(documentSubtitle)
+                        .toolbar {
+                            documentToolbar
+                        }
+                } else {
+                    EmptyStateView.noDocument(
+                        onOpenDocument: {
+                            showingDocumentPicker = true
+                        },
+                        onBrowseRecent: {
+                            sidebarSelection = .recent
+                        }
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
         }
         .frame(minWidth: 600, idealWidth: 800)
@@ -214,6 +233,14 @@ struct ContentView: View {
         }
 
         ToolbarItemGroup(placement: .primaryAction) {
+            Button("New") {
+                Task {
+                    await createNewDocument()
+                }
+            }
+            .help("Create New Document")
+            .keyboardShortcut("n", modifiers: .command)
+
             Button("Open") {
                 showingDocumentPicker = true
             }
@@ -222,6 +249,14 @@ struct ContentView: View {
 
             if coordinator.documentState.currentDocument != nil {
                 Divider()
+
+                Button {
+                    coordinator.uiState.isEditing.toggle()
+                } label: {
+                    Image(systemName: coordinator.uiState.isEditing ? "doc.text.fill" : "pencil")
+                }
+                .help(coordinator.uiState.isEditing ? "View Mode" : "Edit Mode")
+                .keyboardShortcut("e", modifiers: .command)
 
                 Button {
                     coordinator.uiState.searchVisible.toggle()
@@ -281,7 +316,7 @@ struct ContentView: View {
     // MARK: - Computed Properties
 
     private var documentTitle: String {
-        coordinator.documentState.currentDocument?.title ?? "Untitled"
+        coordinator.documentState.currentDocument?.reference.url.lastPathComponent ?? "Untitled"
     }
 
     private var documentSubtitle: String {
@@ -320,7 +355,7 @@ struct ContentView: View {
     private func handleDocumentDrop(_ providers: [NSItemProvider]) -> Bool {
         guard let provider = providers.first else { return false }
 
-        provider.loadObject(ofClass: URL.self) { url, error in
+        _ = provider.loadObject(ofClass: URL.self) { url, _ in
             guard let url = url else { return }
 
             DispatchQueue.main.async {
@@ -334,7 +369,35 @@ struct ContentView: View {
     }
 
     private func loadDocument(from url: URL) async {
-        let reference = DocumentReference(url: url)
+        // Start accessing security-scoped resource
+        guard url.startAccessingSecurityScopedResource() else {
+            print("Failed to access security-scoped resource")
+            return
+        }
+
+        defer {
+            url.stopAccessingSecurityScopedResource()
+        }
+
+        // Get file metadata
+        let resourceValues = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+        let fileSize = Int64(resourceValues?.fileSize ?? 0)
+        let lastModified = resourceValues?.contentModificationDate ?? Date()
+
+        // Create security-scoped bookmark
+        let bookmark = try? url.bookmarkData(
+            options: [.withSecurityScope],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+
+        let reference = DocumentReference(
+            url: url,
+            bookmark: bookmark,
+            lastModified: lastModified,
+            fileSize: fileSize
+        )
+
         await coordinator.loadDocument(reference)
     }
 
@@ -350,7 +413,7 @@ struct ContentView: View {
     }
 
     private func printDocument() {
-        guard let document = coordinator.documentState.currentDocument else { return }
+        guard coordinator.documentState.currentDocument != nil else { return }
 
         let printInfo = NSPrintInfo()
         printInfo.topMargin = 72
@@ -366,6 +429,20 @@ struct ContentView: View {
                                delegate: nil,
                                didRun: nil,
                                contextInfo: nil)
+    }
+
+    private func createNewDocument() async {
+        do {
+            // Access FileService through coordinator
+            let fileService = FileService()
+            let url = try await fileService.createNewDocument()
+            
+            // Load the newly created document
+            await loadDocument(from: url)
+        } catch {
+            // Handle error appropriately
+            print("Failed to create new document: \(error)")
+        }
     }
 }
 
@@ -428,7 +505,11 @@ private struct RecentFilesView: View {
             ForEach(coordinator.userPreferences.recentFiles, id: \.url) { reference in
                 RecentFileRow(reference: reference) {
                     Task {
-                        await coordinator.loadDocument(reference)
+                        let docRef = DocumentReference(
+                            url: reference.url,
+                            lastModified: reference.lastModified
+                        )
+                        await coordinator.loadDocument(docRef)
                     }
                 }
             }
@@ -451,7 +532,7 @@ private struct RecentFilesView: View {
 }
 
 private struct RecentFileRow: View {
-    let reference: DocumentReference
+    let reference: FileReference
     let onSelect: () -> Void
 
     var body: some View {
@@ -599,21 +680,42 @@ private struct SettingsWindow: View {
 }
 
 private struct GeneralSettingsView: View {
+    @State private var restoreLastSession = UserDefaults.standard.bool(forKey: "restoreLastSession")
+    @State private var openRecentOnLaunch = UserDefaults.standard.bool(forKey: "openRecentOnLaunch")
+    @State private var autoSaveScrollPosition = UserDefaults.standard.bool(forKey: "autoSaveScrollPosition")
+    @State private var rememberWindowSize = UserDefaults.standard.bool(forKey: "rememberWindowSize")
+    @State private var recentFilesLimit = UserDefaults.standard.integer(forKey: "recentFilesLimit") == 0 ? 10 : UserDefaults.standard.integer(forKey: "recentFilesLimit")
+
     var body: some View {
         Form {
             Section("Startup") {
-                Toggle("Restore last session", isOn: .constant(true))
-                Toggle("Open recent file on launch", isOn: .constant(false))
+                Toggle("Restore last session", isOn: $restoreLastSession)
+                    .onChange(of: restoreLastSession) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "restoreLastSession")
+                    }
+                Toggle("Open recent file on launch", isOn: $openRecentOnLaunch)
+                    .onChange(of: openRecentOnLaunch) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "openRecentOnLaunch")
+                    }
             }
 
             Section("Files") {
-                Toggle("Auto-save scroll position", isOn: .constant(true))
-                Toggle("Remember window size", isOn: .constant(true))
+                Toggle("Auto-save scroll position", isOn: $autoSaveScrollPosition)
+                    .onChange(of: autoSaveScrollPosition) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "autoSaveScrollPosition")
+                    }
+                Toggle("Remember window size", isOn: $rememberWindowSize)
+                    .onChange(of: rememberWindowSize) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "rememberWindowSize")
+                    }
 
                 HStack {
                     Text("Recent files limit")
                     Spacer()
-                    Stepper("\(10)", value: .constant(10), in: 5...50)
+                    Stepper("\(recentFilesLimit)", value: $recentFilesLimit, in: 5...50)
+                        .onChange(of: recentFilesLimit) { _, newValue in
+                            UserDefaults.standard.set(newValue, forKey: "recentFilesLimit")
+                        }
                 }
             }
         }
@@ -630,23 +732,53 @@ private struct AppearanceSettingsView: View {
 
 private struct AccessibilitySettingsView: View {
     @Environment(\.themeManager) private var themeManager
+    @State private var highContrast = UserDefaults.standard.bool(forKey: "highContrast")
+    @State private var reduceTransparency = UserDefaults.standard.bool(forKey: "reduceTransparency")
+    @State private var increaseContrast = UserDefaults.standard.bool(forKey: "increaseContrast")
+    @State private var reduceMotion = UserDefaults.standard.bool(forKey: "reduceMotion")
+    @State private var autoPlayAnimations = UserDefaults.standard.bool(forKey: "autoPlayAnimations")
+    @State private var fullKeyboardAccess = UserDefaults.standard.bool(forKey: "fullKeyboardAccess")
+    @State private var stickyKeys = UserDefaults.standard.bool(forKey: "stickyKeys")
 
     var body: some View {
         Form {
             Section("Visual") {
-                Toggle("High contrast", isOn: .constant(themeManager.isHighContrastEnabled))
-                Toggle("Reduce transparency", isOn: .constant(false))
-                Toggle("Increase contrast", isOn: .constant(false))
+                Toggle("High contrast", isOn: $highContrast)
+                    .onChange(of: highContrast) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "highContrast")
+                        themeManager.isHighContrastEnabled = newValue
+                    }
+                Toggle("Reduce transparency", isOn: $reduceTransparency)
+                    .onChange(of: reduceTransparency) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "reduceTransparency")
+                    }
+                Toggle("Increase contrast", isOn: $increaseContrast)
+                    .onChange(of: increaseContrast) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "increaseContrast")
+                    }
             }
 
             Section("Motion") {
-                Toggle("Reduce motion", isOn: .constant(themeManager.isReduceMotionEnabled))
-                Toggle("Auto-play animations", isOn: .constant(true))
+                Toggle("Reduce motion", isOn: $reduceMotion)
+                    .onChange(of: reduceMotion) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "reduceMotion")
+                        themeManager.isReduceMotionEnabled = newValue
+                    }
+                Toggle("Auto-play animations", isOn: $autoPlayAnimations)
+                    .onChange(of: autoPlayAnimations) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "autoPlayAnimations")
+                    }
             }
 
             Section("Navigation") {
-                Toggle("Full keyboard access", isOn: .constant(true))
-                Toggle("Sticky keys", isOn: .constant(false))
+                Toggle("Full keyboard access", isOn: $fullKeyboardAccess)
+                    .onChange(of: fullKeyboardAccess) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "fullKeyboardAccess")
+                    }
+                Toggle("Sticky keys", isOn: $stickyKeys)
+                    .onChange(of: stickyKeys) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "stickyKeys")
+                    }
             }
         }
         .formStyle(.grouped)
@@ -655,25 +787,53 @@ private struct AccessibilitySettingsView: View {
 }
 
 private struct AdvancedSettingsView: View {
+    @State private var enablePerformanceMonitoring = UserDefaults.standard.bool(forKey: "enablePerformanceMonitoring")
+    @State private var viewportOptimization = UserDefaults.standard.bool(forKey: "viewportOptimization")
+    @State private var memoryOptimization = UserDefaults.standard.bool(forKey: "memoryOptimization")
+    @State private var cacheSize = UserDefaults.standard.integer(forKey: "cacheSize") == 0 ? 100 : UserDefaults.standard.integer(forKey: "cacheSize")
+    @State private var enableDebugMode = UserDefaults.standard.bool(forKey: "enableDebugMode")
+    @State private var showPerformanceMetrics = UserDefaults.standard.bool(forKey: "showPerformanceMetrics")
+    @State private var logToConsole = UserDefaults.standard.bool(forKey: "logToConsole")
+
     var body: some View {
         Form {
             Section("Performance") {
-                Toggle("Enable performance monitoring", isOn: .constant(false))
-                Toggle("Viewport optimization", isOn: .constant(true))
-                Toggle("Memory optimization", isOn: .constant(true))
+                Toggle("Enable performance monitoring", isOn: $enablePerformanceMonitoring)
+                    .onChange(of: enablePerformanceMonitoring) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "enablePerformanceMonitoring")
+                    }
+                Toggle("Viewport optimization", isOn: $viewportOptimization)
+                    .onChange(of: viewportOptimization) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "viewportOptimization")
+                    }
+                Toggle("Memory optimization", isOn: $memoryOptimization)
+                    .onChange(of: memoryOptimization) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "memoryOptimization")
+                    }
 
                 HStack {
                     Text("Cache size limit")
                     Spacer()
-                    Text("100 MB")
-                        .foregroundStyle(.secondary)
+                    Stepper("\(cacheSize) MB", value: $cacheSize, in: 50...500, step: 50)
+                        .onChange(of: cacheSize) { _, newValue in
+                            UserDefaults.standard.set(newValue, forKey: "cacheSize")
+                        }
                 }
             }
 
             Section("Developer") {
-                Toggle("Enable debug mode", isOn: .constant(false))
-                Toggle("Show performance metrics", isOn: .constant(false))
-                Toggle("Log to console", isOn: .constant(false))
+                Toggle("Enable debug mode", isOn: $enableDebugMode)
+                    .onChange(of: enableDebugMode) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "enableDebugMode")
+                    }
+                Toggle("Show performance metrics", isOn: $showPerformanceMetrics)
+                    .onChange(of: showPerformanceMetrics) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "showPerformanceMetrics")
+                    }
+                Toggle("Log to console", isOn: $logToConsole)
+                    .onChange(of: logToConsole) { _, newValue in
+                        UserDefaults.standard.set(newValue, forKey: "logToConsole")
+                    }
             }
         }
         .formStyle(.grouped)

@@ -18,9 +18,9 @@
 /// - ThemeManager: Theme and accessibility settings management
 /// - SharedComponents: Reusable UI elements and platform adaptations
 
-import SwiftUI
 import MarkdownCore
 import Settings
+import SwiftUI
 
 // MARK: - Public API
 
@@ -86,11 +86,15 @@ private struct PlatformKey: EnvironmentKey {
 }
 
 /// Platform enumeration for adaptive UI
-public enum Platform {
+public enum Platform: Sendable {
     case iOS
     case macOS
 
     public var isTouch: Bool {
+        self == .iOS
+    }
+
+    public var isIOS: Bool {
         self == .iOS
     }
 

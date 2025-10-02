@@ -104,7 +104,7 @@ public struct ContentHighlighter: Sendable {
 
     /// Count matches in content
     public func countMatches(in content: String, query: String) -> Int {
-        return findMatches(in: content, query: query).count
+        findMatches(in: content, query: query).count
     }
 
     // MARK: - Advanced Highlighting
@@ -252,7 +252,7 @@ extension ContentHighlighter {
 
     /// Apply highlighting to search result list - memory optimized with lazy highlighting
     public func highlightSearchResults(_ results: [SearchResult], query: String) -> [LazyHighlightedSearchResult] {
-        return results.map { result in
+        results.map { result in
             LazyHighlightedSearchResult(
                 result: result,
                 query: query,
@@ -356,7 +356,7 @@ extension ContentHighlighter {
             let endIndex = min(i + batchSize, contents.count)
             let batch = Array(contents[i..<endIndex])
 
-            let batchResults = batch.map { (content, query) in
+            let batchResults = batch.map { content, query in
                 highlighter.highlightMatches(in: content, query: query)
             }
 
@@ -378,7 +378,7 @@ extension ContentHighlighter {
 
     /// Get cache statistics for monitoring
     @MainActor public static func getCacheStats() -> (count: Int, limit: Int) {
-        return (count: highlightCache.count, limit: cacheLimit)
+        (count: highlightCache.count, limit: cacheLimit)
     }
 
     /// Asynchronous highlighting for large content
@@ -386,7 +386,7 @@ extension ContentHighlighter {
         in content: NSAttributedString,
         query: String
     ) async -> NSAttributedString {
-        return await withCheckedContinuation { continuation in
+        await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 let result = self.highlightMatches(in: content, query: query)
                 continuation.resume(returning: result)

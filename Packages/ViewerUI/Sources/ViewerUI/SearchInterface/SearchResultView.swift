@@ -4,8 +4,8 @@
 /// highlighting the matched text, and providing navigation to
 /// the result location in the document.
 
-import SwiftUI
 import Search
+import SwiftUI
 
 /// Individual search result view with context and highlighting
 struct SearchResultView: View {
@@ -40,7 +40,7 @@ struct SearchResultView: View {
 
                 contextPreview
 
-                if let heading = result.containingHeading {
+                if let heading = result.headingContext {
                     headingContext(heading)
                 }
             }
@@ -98,25 +98,30 @@ struct SearchResultView: View {
     @ViewBuilder
     private var matchTypeIndicator: some View {
         switch result.matchType {
-        case .exactMatch:
-            Label("Exact", systemImage: "checkmark.circle.fill")
-                .font(.caption2)
-                .foregroundStyle(.green)
-
-        case .partialMatch:
-            Label("Partial", systemImage: "circle.dashed")
-                .font(.caption2)
-                .foregroundStyle(.orange)
-
-        case .fuzzyMatch:
-            Label("Fuzzy", systemImage: "waveform")
+        case .heading:
+            Label("Heading", systemImage: "text.format")
                 .font(.caption2)
                 .foregroundStyle(.blue)
 
-        case .regexMatch:
-            Label("Regex", systemImage: "textformat.alt")
+        case .content:
+            Label("Content", systemImage: "text.alignleft")
+                .font(.caption2)
+                .foregroundStyle(.green)
+
+        case .codeBlock:
+            Label("Code", systemImage: "curlybraces")
                 .font(.caption2)
                 .foregroundStyle(.purple)
+
+        case .link:
+            Label("Link", systemImage: "link")
+                .font(.caption2)
+                .foregroundStyle(.orange)
+
+        case .emphasis:
+            Label("Emphasis", systemImage: "italic")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -128,8 +133,8 @@ struct SearchResultView: View {
             highlightedText
 
             // Additional context if available
-            if !result.surroundingContext.isEmpty {
-                Text(result.surroundingContext)
+            if !result.context.isEmpty {
+                Text(result.context)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -148,7 +153,7 @@ struct SearchResultView: View {
             .font(.body)
             .lineLimit(3)
             .fixedSize(horizontal: false, vertical: true)
-            .accessibilityLabel("Search result: \(result.matchedText)")
+            .accessibilityLabel("Search result: \(result.text)")
     }
 
     // MARK: - Heading Context
@@ -178,7 +183,7 @@ struct SearchResultView: View {
         var attributedString = AttributedString(fullText)
 
         // Find all occurrences of the matched text
-        let searchText = result.matchedText.lowercased()
+        let searchText = result.text.lowercased()
         let fullTextLower = fullText.lowercased()
 
         var searchStartIndex = fullTextLower.startIndex
@@ -230,13 +235,13 @@ struct SearchResultView: View {
     }
 
     private var accessibilityLabel: String {
-        "Search result \(index + 1): \(result.matchedText)"
+        "Search result \(index + 1): \(result.text)"
     }
 
     private var accessibilityValue: String {
         var value = ""
 
-        if let heading = result.containingHeading {
+        if let heading = result.headingContext {
             value += "In section: \(heading)"
         }
 
@@ -254,13 +259,13 @@ struct SearchResultView: View {
 extension SearchResult {
     var contextWithMatch: String {
         // Combine surrounding context with matched text
-        let beforeContext = surroundingContext.prefix(60)
-        let afterContext = surroundingContext.suffix(60)
+        let beforeContext = context.prefix(60)
+        let afterContext = context.suffix(60)
 
-        if surroundingContext.isEmpty {
-            return matchedText
+        if context.isEmpty {
+            return text
         } else {
-            return "\(beforeContext)...\(matchedText)...\(afterContext)"
+            return "\(beforeContext)...\(text)...\(afterContext)"
         }
     }
 
@@ -268,7 +273,7 @@ extension SearchResult {
         // Generate human-readable location description
         if lineNumber > 0 {
             return "Line \(lineNumber)"
-        } else if let heading = containingHeading {
+        } else if let heading = headingContext {
             return "In \(heading)"
         } else {
             return nil
@@ -278,28 +283,18 @@ extension SearchResult {
 
 // MARK: - Preview
 
-#Preview("Search Result View") {
-    VStack(spacing: 1) {
-        SearchResultView(
-            result: SearchResult.previewExact,
-            index: 0,
-            isSelected: false,
-            onSelect: {}
-        )
-
-        SearchResultView(
-            result: SearchResult.previewPartial,
-            index: 1,
-            isSelected: true,
-            onSelect: {}
-        )
-
-        SearchResultView(
-            result: SearchResult.previewFuzzy,
-            index: 2,
-            isSelected: false,
-            onSelect: {}
-        )
+#if DEBUG
+struct SearchResultView_Previews: PreviewProvider {
+    static var previews: some View {
+        ScrollView {
+            VStack(spacing: 1) {
+                // Preview content would go here if SearchResult.preview* existed
+                Text("Search result previews")
+                    .padding()
+            }
+        }
+        .background(Color.systemBackground)
+        .previewDisplayName("Search Result View")
     }
-    .background(Color.systemBackground)
 }
+#endif

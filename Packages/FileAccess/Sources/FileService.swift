@@ -28,17 +28,32 @@ public class FileService: ObservableObject {
 
     /// Present document picker and return selected document URL
     public func openDocument() async throws -> URL {
-        return try await documentPicker.selectDocument()
+        try await documentPicker.selectDocument()
+    }
+
+    /// Create a new document with save dialog
+    public func createNewDocument(fileName: String = "Untitled.md", initialContent: String = "# New Document\n\n") async throws -> URL {
+        let url = try await documentPicker.saveDocument(fileName: fileName, initialContent: initialContent)
+        
+        // Validate the created file
+        guard await isDocumentAccessible(url) else {
+            throw FileAccessError.accessDenied
+        }
+        
+        // Add to recent documents
+        saveRecentDocument(url)
+        
+        return url
     }
 
     /// Load document content from URL
     public func loadDocument(from url: URL) async throws -> String {
-        return try await loadDocumentContent(from: url)
+        try await loadDocumentContent(from: url)
     }
 
     /// Get list of recent documents
     public func getRecentDocuments() -> [URL] {
-        return recentDocuments.getRecentDocuments()
+        recentDocuments.getRecentDocuments()
     }
 
     /// Save document to recent documents list
@@ -64,7 +79,7 @@ public class FileService: ObservableObject {
 
     /// Get file metadata
     public func getFileMetadata(_ url: URL) async throws -> FileMetadata {
-        return try await FileMetadata.from(url: url)
+        try await FileMetadata.from(url: url)
     }
 
     /// Remove from recent documents
@@ -110,7 +125,7 @@ public class FileService: ObservableObject {
 
     private func loadDocumentContent(from url: URL) async throws -> String {
         // Use SecurityManager's safe scoped access method to prevent resource leaks
-        return try await securityManager.withSecurityScopedAccess(to: url) {
+        try await securityManager.withSecurityScopedAccess(to: url) {
             // Validate file exists
             guard FileManager.default.fileExists(atPath: url.path) else {
                 throw FileAccessError.fileNotFound
@@ -282,6 +297,6 @@ public enum FileAccessError: Error, LocalizedError, Sendable {
 extension FileService {
     /// Create a preview service for development
     public static var preview: FileService {
-        return FileService()
+        FileService()
     }
 }

@@ -4,11 +4,13 @@
 /// coordinating between DocumentState, SearchState, UIState, and UserPreferences
 /// with actor-based thread safety and performance optimization.
 
-import SwiftUI
+import FileAccess
 import MarkdownCore
 import Search
+import SwiftUI
+
+// Import Settings after MarkdownCore to avoid ambiguity
 import Settings
-import FileAccess
 
 /// Central application state coordinator implementing ADR-005 architecture
 @MainActor
@@ -27,6 +29,41 @@ public class AppStateCoordinator {
     private let searchService: SearchService
     private let fileService: FileService
     private let preferencesService: PreferencesService
+
+    // MARK: - Additional Services for iOS/macOS Apps
+
+    private var _searchManager: SearchManagerProxy?
+    private var _accessibilityManager: AccessibilityManager?
+    private var _renderingEngine: RenderingEngine?
+    private var _documentCache: DocumentCache?
+
+    public var searchManager: SearchManagerProxy {
+        if _searchManager == nil {
+            _searchManager = SearchManagerProxy(searchService: searchService)
+        }
+        return _searchManager!
+    }
+
+    public var accessibilityManager: AccessibilityManager {
+        if _accessibilityManager == nil {
+            _accessibilityManager = AccessibilityManager()
+        }
+        return _accessibilityManager!
+    }
+
+    public var renderingEngine: RenderingEngine {
+        if _renderingEngine == nil {
+            _renderingEngine = RenderingEngine()
+        }
+        return _renderingEngine!
+    }
+
+    public var documentCache: DocumentCache {
+        if _documentCache == nil {
+            _documentCache = DocumentCache()
+        }
+        return _documentCache!
+    }
 
     // MARK: - Performance Monitoring
 
@@ -50,54 +87,70 @@ public class AppStateCoordinator {
         setupPerformanceMonitoring()
     }
 
+    // MARK: - App Lifecycle
+
+    public func initialize() async {
+        // Initialize all services and restore app state
+        await performanceMonitor.trackOperation("app_initialization") {
+            // Initialize services
+            await self.searchManager.initialize()
+            await self.accessibilityManager.initialize()
+            await self.renderingEngine.initialize()
+            await self.documentCache.initialize()
+
+            // Load user preferences
+            await self.userPreferences.loadSettings()
+        }
+    }
+
     // MARK: - Document Operations
 
     public func loadDocument(_ reference: DocumentReference) async {
-        await performanceMonitor.trackOperation("document_load") {
-            documentState.isLoading = true
-            documentState.parseError = nil
-            searchState.results = []
-            searchState.query = ""
+        await self.performanceMonitor.trackOperation("document_load") {
+            self.documentState.isLoading = true
+            self.documentState.parseError = nil
+            self.searchState.results = []
+            self.searchState.query = ""
 
             do {
-                let document = try await documentService.loadDocument(reference)
-                documentState.currentDocument = document
-                documentState.documentContent = document.attributedContent
-                documentState.documentMetadata = document.metadata
-                documentState.scrollPosition = 0
+                let document = try await self.documentService.loadDocument(reference)
+                self.documentState.currentDocument = document
+                self.documentState.documentContent = document.attributedContent
+                self.documentState.documentMetadata = document.metadata
+                self.documentState.scrollPosition = 0
 
                 // Update search index in background
-                Task.detached {
+                Task.detached { [weak self] in
+                    guard let self = self else { return }
                     await self.searchService.indexDocument(document)
                     await self.updateSearchOutline()
                 }
 
                 // Add to recent files
-                await userPreferences.addRecentFile(reference)
+                await self.userPreferences.addRecentFile(reference.url)
 
                 // Update UI state
-                uiState.isDocumentLoaded = true
-                uiState.hasUnsavedChanges = false
-
+                self.uiState.isDocumentLoaded = true
+                self.uiState.hasUnsavedChanges = false
             } catch {
-                documentState.parseError = error
-                uiState.isDocumentLoaded = false
+                self.documentState.parseError = error
+                self.uiState.isDocumentLoaded = false
             }
 
-            documentState.isLoading = false
+            self.documentState.isLoading = false
         }
     }
 
     public func refreshDocument() async {
-        guard let currentDocument = documentState.currentDocument else { return }
+        guard let currentDocument = self.documentState.currentDocument else { return }
 
-        await loadDocument(currentDocument.reference)
+        await self.loadDocument(currentDocument.reference)
     }
 
     public func retryDocumentLoad() async {
-        guard let currentDocument = documentState.currentDocument else { return }
+        guard let currentDocument = self.documentState.currentDocument else { return }
 
-        await loadDocument(currentDocument.reference)
+        await self.loadDocument(currentDocument.reference)
     }
 
     public func closeDocument() {
@@ -119,149 +172,173 @@ public class AppStateCoordinator {
     // MARK: - Search Operations
 
     public func performSearch(_ query: String, options: SearchOptions = SearchOptions()) async {
-        await performanceMonitor.trackOperation("search") {
-            searchState.query = query
-            searchState.isSearching = true
-            searchState.searchError = nil
+        await self.performanceMonitor.trackOperation("search") {
+            self.searchState.query = query
+            self.searchState.isSearching = true
+            self.searchState.searchError = nil
 
             guard !query.isEmpty else {
-                searchState.results = []
-                searchState.currentResultIndex = 0
-                searchState.isSearching = false
+                self.searchState.results = []
+                self.searchState.currentResultIndex = 0
+                self.searchState.isSearching = false
                 return
             }
 
             do {
-                let results = try await searchService.search(
+                let results = try await self.searchService.search(
                     query,
                     options: options,
-                    in: documentState.currentDocument
+                    in: self.documentState.currentDocument
                 )
 
-                searchState.results = results
-                searchState.currentResultIndex = 0
+                self.searchState.results = results
+                self.searchState.currentResultIndex = 0
 
                 // Update document highlighting
-                if let document = documentState.currentDocument {
-                    let highlightedContent = await highlightSearchResults(
+                if let document = self.documentState.currentDocument {
+                    let highlightedContent = await self.highlightSearchResults(
                         in: document.attributedContent,
                         for: results
                     )
-                    documentState.documentContent = highlightedContent
+                    self.documentState.documentContent = highlightedContent
                 }
-
             } catch {
-                searchState.searchError = error
-                searchState.results = []
+                self.searchState.searchError = error
+                self.searchState.results = []
             }
 
-            searchState.isSearching = false
+            self.searchState.isSearching = false
         }
     }
 
     public func jumpToSearchResult(at index: Int) async {
-        guard index >= 0 && index < searchState.results.count else { return }
+        guard index >= 0 && index < self.searchState.results.count else { return }
 
-        searchState.currentResultIndex = index
-        let result = searchState.results[index]
+        self.searchState.currentResultIndex = index
+        let result = self.searchState.results[index]
 
         // Calculate scroll position for result
-        let targetPosition = await calculateScrollPosition(for: result)
-        documentState.scrollPosition = targetPosition
-        documentState.selectedRange = result.range
+        let targetPosition = await self.calculateScrollPosition(for: result)
+        self.documentState.scrollPosition = targetPosition
+        self.documentState.selectedRange = result.range
 
         // Update highlighting
-        await updateSearchHighlighting()
+        await self.updateSearchHighlighting()
     }
 
     public func highlightAllSearchResults() async {
-        guard !searchState.results.isEmpty else { return }
+        guard !self.searchState.results.isEmpty else { return }
 
         // Implement highlighting for all results
-        if let document = documentState.currentDocument {
-            let highlightedContent = await highlightSearchResults(
+        if let document = self.documentState.currentDocument {
+            let highlightedContent = await self.highlightSearchResults(
                 in: document.attributedContent,
-                for: searchState.results
+                for: self.searchState.results
             )
-            documentState.documentContent = highlightedContent
+            self.documentState.documentContent = highlightedContent
         }
     }
 
     // MARK: - Navigation Operations
 
     public func jumpToHeading(_ headingId: String) async {
-        guard let outline = searchState.outline.first(where: { $0.id == headingId }) else { return }
+        guard let outline = self.searchState.outline.first(where: { $0.id == headingId }) else { return }
 
-        let targetPosition = await calculateScrollPosition(for: outline)
-        documentState.scrollPosition = targetPosition
+        let targetPosition = await self.calculateScrollPosition(for: outline)
+        self.documentState.scrollPosition = targetPosition
 
         // Update selection
-        documentState.selectedRange = outline.range
+        self.documentState.selectedRange = outline.range
     }
 
     public func getCurrentHeading() async -> OutlineItem? {
-        let currentPosition = documentState.scrollPosition
+        let currentPosition = self.documentState.scrollPosition
 
         // Find the heading closest to current scroll position
-        return searchState.outline.last { outline in
+        return self.searchState.outline.last { outline in
             outline.position <= currentPosition
         }
     }
 
     public func saveScrollPosition(_ position: CGFloat) async {
-        documentState.scrollPosition = position
+        self.documentState.scrollPosition = position
 
         // Debounced save to user preferences
-        stateUpdateBatcher.batchUpdate {
+        self.stateUpdateBatcher.batchUpdate { [weak self] in
             Task {
+                guard let self = self else { return }
                 await self.userPreferences.saveScrollPosition(
                     position,
-                    for: self.documentState.currentDocument?.reference
+                    for: self.documentState.currentDocument?.reference.url
                 )
             }
+        }
+    }
+
+    /// Validate document access (for iOS refresh functionality)
+    public func validateDocumentAccess(for reference: DocumentReference) async {
+        // Check if document is still accessible
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: reference.url.path) else {
+            // Document no longer exists, clear it
+            closeDocument()
+            return
+        }
+
+        // Check if document was modified externally
+        do {
+            let attributes = try fileManager.attributesOfItem(atPath: reference.url.path)
+            if let modificationDate = attributes[.modificationDate] as? Date,
+               modificationDate > reference.lastModified {
+                // Document was modified, offer to reload
+                await refreshDocument()
+            }
+        } catch {
+            print("Failed to check document attributes: \(error)")
         }
     }
 
     // MARK: - State Restoration
 
     public func restoreState() async {
-        await performanceMonitor.trackOperation("state_restoration") {
+        await self.performanceMonitor.trackOperation("state_restoration") {
             // Load user preferences
-            await userPreferences.loadSettings()
+            await self.userPreferences.loadSettings()
 
             // Restore last document if available
-            if let lastDocumentRef = await userPreferences.getLastDocument() {
-                await loadDocument(lastDocumentRef)
+            if let lastDocumentURL = await self.userPreferences.getLastDocument() {
+                let lastDocumentRef = DocumentReference(url: lastDocumentURL)
+                await self.loadDocument(lastDocumentRef)
 
                 // Restore scroll position
-                if let scrollPosition = await userPreferences.getScrollPosition(for: lastDocumentRef) {
-                    documentState.scrollPosition = scrollPosition
+                if let scrollPosition = await self.userPreferences.getScrollPosition(for: lastDocumentURL) {
+                    self.documentState.scrollPosition = scrollPosition
                 }
             }
 
             // Restore UI state
-            uiState.sidebarVisible = await userPreferences.getSidebarVisibility()
-            uiState.searchVisible = await userPreferences.getSearchVisibility()
+            self.uiState.sidebarVisible = await self.userPreferences.getSidebarVisibility()
+            self.uiState.searchVisible = await self.userPreferences.getSearchVisibility()
         }
     }
 
     public func saveState() async {
-        await performanceMonitor.trackOperation("state_persistence") {
+        await self.performanceMonitor.trackOperation("state_persistence") {
             // Save current document reference
-            if let currentDocument = documentState.currentDocument {
-                await userPreferences.setLastDocument(currentDocument.reference)
-                await userPreferences.saveScrollPosition(
-                    documentState.scrollPosition,
-                    for: currentDocument.reference
+            if let currentDocument = self.documentState.currentDocument {
+                await self.userPreferences.setLastDocument(currentDocument.reference.url)
+                await self.userPreferences.saveScrollPosition(
+                    self.documentState.scrollPosition,
+                    for: currentDocument.reference.url
                 )
             }
 
             // Save UI state
-            await userPreferences.setSidebarVisibility(uiState.sidebarVisible)
-            await userPreferences.setSearchVisibility(uiState.searchVisible)
+            await self.userPreferences.setSidebarVisibility(self.uiState.sidebarVisible)
+            await self.userPreferences.setSearchVisibility(self.uiState.searchVisible)
 
             // Save preferences
-            await userPreferences.saveSettings()
+            await self.userPreferences.saveSettings()
         }
     }
 
@@ -269,42 +346,44 @@ public class AppStateCoordinator {
 
     private func setupStateObservation() {
         // Monitor state changes for validation and synchronization
-        Task {
+        Task { [weak self] in
             while !Task.isCancelled {
-                await validateStateConsistency()
+                guard let self = self else { return }
+                await self.validateStateConsistency()
                 try? await Task.sleep(for: .seconds(5))
             }
         }
     }
 
     private func setupPerformanceMonitoring() {
-        Task {
-            await performanceMonitor.startCoordinatorMonitoring()
+        Task { [weak self] in
+            guard let self = self else { return }
+            await self.performanceMonitor.startCoordinatorMonitoring()
         }
     }
 
     private func validateStateConsistency() async {
         // Validate search state consistency
-        if searchState.results.isEmpty {
-            documentState.selectedRange = nil
-        } else if searchState.currentResultIndex < searchState.results.count {
-            let currentResult = searchState.results[searchState.currentResultIndex]
-            documentState.selectedRange = currentResult.range
+        if self.searchState.results.isEmpty {
+            self.documentState.selectedRange = nil
+        } else if self.searchState.currentResultIndex < self.searchState.results.count {
+            let currentResult = self.searchState.results[self.searchState.currentResultIndex]
+            self.documentState.selectedRange = currentResult.range
         }
 
         // Validate UI state consistency
-        uiState.isDocumentLoaded = documentState.currentDocument != nil
-        uiState.hasSearchResults = !searchState.results.isEmpty
+        self.uiState.isDocumentLoaded = self.documentState.currentDocument != nil
+        self.uiState.hasSearchResults = !self.searchState.results.isEmpty
     }
 
     private func updateSearchOutline() async {
-        guard let document = documentState.currentDocument else { return }
+        guard let document = self.documentState.currentDocument else { return }
 
         do {
-            let outline = try await searchService.generateOutline(for: document)
-            searchState.outline = outline
+            let outline = try await self.searchService.generateOutline(for: document)
+            self.searchState.outline = outline
         } catch {
-            searchState.outline = []
+            self.searchState.outline = []
         }
     }
 
@@ -316,7 +395,8 @@ public class AppStateCoordinator {
         var highlightedContent = content
 
         for result in results {
-            if let range = result.attributedRange {
+            if let nsRange = result.attributedRange,
+               let range = Range(nsRange, in: highlightedContent) {
                 highlightedContent[range].backgroundColor = .yellow.opacity(0.3)
                 highlightedContent[range].foregroundColor = .black
             }
@@ -326,25 +406,25 @@ public class AppStateCoordinator {
     }
 
     private func updateSearchHighlighting() async {
-        guard !searchState.results.isEmpty,
-              searchState.currentResultIndex < searchState.results.count else { return }
+        guard !self.searchState.results.isEmpty,
+              self.searchState.currentResultIndex < self.searchState.results.count else { return }
 
         // Update highlighting to emphasize current result
-        if let document = documentState.currentDocument {
-            let highlightedContent = await highlightSearchResults(
+        if let document = self.documentState.currentDocument {
+            let highlightedContent = await self.highlightSearchResults(
                 in: document.attributedContent,
-                for: searchState.results
+                for: self.searchState.results
             )
 
             // Emphasize current result
-            let currentResult = searchState.results[searchState.currentResultIndex]
+            let currentResult = self.searchState.results[self.searchState.currentResultIndex]
             if let nsRange = currentResult.attributedRange {
                 var emphasized = highlightedContent
                 // Convert NSRange to Range<AttributedString.Index>
                 if let range = Range(nsRange, in: emphasized) {
                     emphasized[range].backgroundColor = .orange.opacity(0.6)
                     emphasized[range].font = emphasized[range].font?.bold()
-                    documentState.documentContent = emphasized
+                    self.documentState.documentContent = emphasized
                 }
             }
         }
@@ -353,12 +433,12 @@ public class AppStateCoordinator {
     private func calculateScrollPosition(for result: SearchResult) async -> CGFloat {
         // Calculate scroll position to show result
         // This would integrate with the document layout system
-        return CGFloat(result.lineNumber) * 20.0 // Simplified calculation
+        CGFloat(result.lineNumber) * 20.0 // Simplified calculation
     }
 
     private func calculateScrollPosition(for outline: OutlineItem) async -> CGFloat {
         // Calculate scroll position for heading
-        return outline.position
+        outline.position
     }
 }
 
@@ -369,7 +449,7 @@ public class DocumentState {
     public var currentDocument: DocumentModel?
     public var isLoading: Bool = false
     public var parseError: Error?
-    public var documentContent: AttributedString = AttributedString()
+    public var documentContent = AttributedString()
     public var documentMetadata: DocumentMetadata?
     public var scrollPosition: CGFloat = 0
     public var selectedRange: NSRange?
@@ -398,6 +478,7 @@ public class UIState {
     public var hasUnsavedChanges: Bool = false
     public var hasSearchResults: Bool = false
     public var currentModalPresentation: ModalPresentation?
+    public var showingDocumentPicker: Bool = false
 
     public init() {}
 }
@@ -420,33 +501,9 @@ public enum ModalPresentation: Identifiable {
 
 // MARK: - Supporting Types
 
-public struct DocumentReference: Codable, Hashable {
-    public let url: URL
-    public let bookmark: Data?
-    public let lastModified: Date
+// DocumentReference is now imported from MarkdownCore
 
-    public init(url: URL, bookmark: Data? = nil, lastModified: Date = Date()) {
-        self.url = url
-        self.bookmark = bookmark
-        self.lastModified = lastModified
-    }
-}
-
-public struct DocumentMetadata {
-    public let title: String?
-    public let wordCount: Int
-    public let estimatedReadingTime: Int
-    public let lastModified: Date
-    public let fileSize: Int64
-
-    public init(title: String?, wordCount: Int, estimatedReadingTime: Int, lastModified: Date, fileSize: Int64) {
-        self.title = title
-        self.wordCount = wordCount
-        self.estimatedReadingTime = estimatedReadingTime
-        self.lastModified = lastModified
-        self.fileSize = fileSize
-    }
-}
+// DocumentMetadata is now imported from MarkdownCore
 
 // MARK: - Performance Support
 
@@ -456,15 +513,15 @@ private final class StateUpdateBatcher: @unchecked Sendable {
     private let lock = NSLock()
 
     func batchUpdate(_ update: @escaping () -> Void) {
-        lock.withLock {
-            pendingUpdates.append(update)
+        self.lock.withLock {
+            self.pendingUpdates.append(update)
         }
-        scheduleFlush()
+        self.scheduleFlush()
     }
 
     private func scheduleFlush() {
-        updateTimer?.invalidate()
-        updateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
+        self.updateTimer?.invalidate()
+        self.updateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
             Task { @MainActor in
                 self.flushUpdates()
             }
@@ -472,9 +529,9 @@ private final class StateUpdateBatcher: @unchecked Sendable {
     }
 
     private func flushUpdates() {
-        let updates = lock.withLock {
-            let current = pendingUpdates
-            pendingUpdates.removeAll()
+        let updates = self.lock.withLock {
+            let current = self.pendingUpdates
+            self.pendingUpdates.removeAll()
             return current
         }
 
@@ -510,5 +567,69 @@ extension AppStateCoordinator {
         coordinator.searchState.query = "example"
         coordinator.searchState.results = SearchResult.previewResults
         return coordinator
+    }
+}
+
+// MARK: - Placeholder Service Classes
+
+/// Search manager proxy to provide compatibility with iOS/macOS apps
+public class SearchManagerProxy {
+    private let searchService: SearchService
+
+    init(searchService: SearchService) {
+        self.searchService = searchService
+    }
+
+    public func initialize() async {
+        // Initialize search indexing
+    }
+
+    public func initializeIndex() async {
+        // Initialize search index
+    }
+
+    public func updateIndex() async {
+        // Update search index
+    }
+
+    public func clearInMemoryIndex() {
+        // Clear in-memory search index
+    }
+}
+
+/// Accessibility manager for platform-specific accessibility features
+public class AccessibilityManager {
+    public func initialize() async {
+        // Initialize accessibility features
+    }
+
+    public func updateVoiceOverStatus() {
+        // Update VoiceOver status
+    }
+}
+
+/// Rendering engine for platform-specific rendering optimizations
+public class RenderingEngine {
+    public func initialize() async {
+        // Initialize rendering engine
+    }
+
+    public func enableMetalAcceleration() {
+        // Enable Metal acceleration on supported platforms
+    }
+
+    public func reduceCacheSize() async {
+        // Reduce rendering cache size for memory pressure
+    }
+}
+
+/// Document cache for performance optimization
+public class DocumentCache {
+    public func initialize() async {
+        // Initialize document cache
+    }
+
+    public func clearCache() async {
+        // Clear document cache
     }
 }

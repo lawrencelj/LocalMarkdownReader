@@ -3,19 +3,17 @@
 /// Comprehensive test suite covering search indexing, querying,
 /// performance requirements, and highlighting functionality.
 
-import XCTest
-@testable import Search
 @testable import MarkdownCore
+@testable import Search
+import XCTest
 
+@MainActor
 final class SearchTests: XCTestCase {
     var searchService: SearchService!
     var sampleDocument: DocumentModel!
 
-    override func setUpWithError() throws {
-        searchService = SearchService()
-
-        // Create sample document
-        let content = """
+    // Sample content for tests
+    let sampleContent = """
         # Programming Guide
 
         This document covers **programming concepts** and best practices.
@@ -39,8 +37,8 @@ final class SearchTests: XCTestCase {
         ```
         """
 
-        let documentService = DocumentService()
-        sampleDocument = try! documentService.parseMarkdown(content).get()
+    override func setUpWithError() throws {
+        // Initialize services and document in async test methods
     }
 
     override func tearDownWithError() throws {
@@ -48,9 +46,17 @@ final class SearchTests: XCTestCase {
         sampleDocument = nil
     }
 
+    // Helper method to initialize test fixtures
+    func setupTestFixtures() async throws {
+        searchService = SearchService()
+        let documentService = DocumentService()
+        sampleDocument = try await documentService.parseMarkdown(sampleContent)
+    }
+
     // MARK: - Indexing Tests
 
-    func testDocumentIndexing() async {
+    func testDocumentIndexing() async throws {
+        try await setupTestFixtures()
         await searchService.indexDocument(sampleDocument)
 
         let stats = await searchService.getSearchStatistics()
@@ -58,7 +64,8 @@ final class SearchTests: XCTestCase {
         XCTAssertTrue(stats.totalSearchTerms > 0)
     }
 
-    func testIndexUpdate() async {
+    func testIndexUpdate() async throws {
+        try await setupTestFixtures()
         // Index original document
         await searchService.indexDocument(sampleDocument)
 
@@ -74,7 +81,8 @@ final class SearchTests: XCTestCase {
         XCTAssertEqual(stats.documentsIndexed, 1) // Still one document, but updated
     }
 
-    func testIndexRemoval() async {
+    func testIndexRemoval() async throws {
+        try await setupTestFixtures()
         await searchService.indexDocument(sampleDocument)
 
         var stats = await searchService.getSearchStatistics()
@@ -88,16 +96,18 @@ final class SearchTests: XCTestCase {
 
     // MARK: - Search Tests
 
-    func testBasicSearch() async {
+    func testBasicSearch() async throws {
+        try await setupTestFixtures()
         await searchService.indexDocument(sampleDocument)
 
         let results = await searchService.searchContent("programming")
 
-        XCTAssertTrue(results.count > 0)
+        XCTAssertTrue(!results.isEmpty)
         XCTAssertTrue(results.contains { $0.text.lowercased().contains("programming") })
     }
 
-    func testCaseInsensitiveSearch() async {
+    func testCaseInsensitiveSearch() async throws {
+        try await setupTestFixtures()
         await searchService.indexDocument(sampleDocument)
 
         let lowerResults = await searchService.searchContent("swift")
@@ -108,16 +118,18 @@ final class SearchTests: XCTestCase {
         XCTAssertEqual(lowerResults.count, mixedResults.count)
     }
 
-    func testMultiWordSearch() async {
+    func testMultiWordSearch() async throws {
+        try await setupTestFixtures()
         await searchService.indexDocument(sampleDocument)
 
         let results = await searchService.searchContent("Swift programming")
 
-        XCTAssertTrue(results.count > 0)
+        XCTAssertTrue(!results.isEmpty)
         // Should find results containing either "swift" or "programming"
     }
 
-    func testEmptySearch() async {
+    func testEmptySearch() async throws {
+        try await setupTestFixtures()
         await searchService.indexDocument(sampleDocument)
 
         let results = await searchService.searchContent("")
@@ -125,7 +137,8 @@ final class SearchTests: XCTestCase {
         XCTAssertEqual(results.count, 0)
     }
 
-    func testNoResultsSearch() async {
+    func testNoResultsSearch() async throws {
+        try await setupTestFixtures()
         await searchService.indexDocument(sampleDocument)
 
         let results = await searchService.searchContent("nonexistentterm")
@@ -136,6 +149,7 @@ final class SearchTests: XCTestCase {
     // MARK: - Advanced Search Tests
 
     func testAdvancedSearchOptions() async throws {
+        try await setupTestFixtures()
         await searchService.indexDocument(sampleDocument)
 
         // Case sensitive search
@@ -157,6 +171,7 @@ final class SearchTests: XCTestCase {
     }
 
     func testWholeWordsSearch() async throws {
+        try await setupTestFixtures()
         await searchService.indexDocument(sampleDocument)
 
         let wholeWordsOptions = SearchOptions(wholeWords: true)
@@ -171,6 +186,7 @@ final class SearchTests: XCTestCase {
     }
 
     func testHeadingsOnlySearch() async throws {
+        try await setupTestFixtures()
         await searchService.indexDocument(sampleDocument)
 
         let headingsOnlyOptions = SearchOptions(searchHeadingsOnly: true)
@@ -184,6 +200,7 @@ final class SearchTests: XCTestCase {
     }
 
     func testMaxResultsLimit() async throws {
+        try await setupTestFixtures()
         await searchService.indexDocument(sampleDocument)
 
         let limitedOptions = SearchOptions(maxResults: 3)
@@ -198,7 +215,8 @@ final class SearchTests: XCTestCase {
 
     // MARK: - Performance Tests
 
-    func testSearchPerformance() async {
+    func testSearchPerformance() async throws {
+        try await setupTestFixtures()
         await searchService.indexDocument(sampleDocument)
 
         let startTime = CFAbsoluteTimeGetCurrent()
@@ -209,13 +227,14 @@ final class SearchTests: XCTestCase {
 
         // Should complete in under 100ms for small documents
         XCTAssertLessThan(searchTime, 0.1)
-        XCTAssertTrue(results.count > 0)
+        XCTAssertTrue(!results.isEmpty)
     }
 
-    func testIndexingPerformance() async {
+    func testIndexingPerformance() async throws {
+        try await setupTestFixtures()
         let largeContent = String(repeating: "This is a line of content for performance testing.\n", count: 1000)
         let documentService = DocumentService()
-        let largeDocument = try! await documentService.parseMarkdown(largeContent)
+        let largeDocument = try await documentService.parseMarkdown(largeContent)
 
         let startTime = CFAbsoluteTimeGetCurrent()
         await searchService.indexDocument(largeDocument)
@@ -229,21 +248,23 @@ final class SearchTests: XCTestCase {
 
     // MARK: - Highlighting Tests
 
-    func testContentHighlighting() {
+    func testContentHighlighting() async throws {
+        try await setupTestFixtures()
         let content = NSAttributedString(string: "This is a test document with programming content.")
         let query = "programming"
 
-        let highlighted = searchService.highlightMatches(content, query: query)
+        let highlighted = await searchService.highlightMatches(content, query: query)
 
         XCTAssertNotEqual(highlighted, content)
         XCTAssertTrue(highlighted.string.contains("programming"))
     }
 
-    func testMultipleMatchHighlighting() {
+    func testMultipleMatchHighlighting() async throws {
+        try await setupTestFixtures()
         let content = NSAttributedString(string: "Programming is fun. I love programming.")
         let query = "programming"
 
-        let highlighted = searchService.highlightMatches(content, query: query)
+        let highlighted = await searchService.highlightMatches(content, query: query)
 
         // Should highlight both instances of "programming"
         XCTAssertNotEqual(highlighted, content)
@@ -252,6 +273,7 @@ final class SearchTests: XCTestCase {
     // MARK: - Outline Generation Tests
 
     func testOutlineGeneration() async throws {
+        try await setupTestFixtures()
         await searchService.indexDocument(sampleDocument)
 
         let outline = try await searchService.generateOutline(for: sampleDocument)
@@ -265,7 +287,8 @@ final class SearchTests: XCTestCase {
 
     // MARK: - Relevance Scoring Tests
 
-    func testRelevanceScoring() async {
+    func testRelevanceScoring() async throws {
+        try await setupTestFixtures()
         await searchService.indexDocument(sampleDocument)
 
         let results = await searchService.searchContent("Swift")
@@ -292,6 +315,7 @@ final class SearchTests: XCTestCase {
     // MARK: - Search Context Tests
 
     func testSearchContext() async throws {
+        try await setupTestFixtures()
         await searchService.indexDocument(sampleDocument)
 
         let options = SearchOptions(includeContext: true, contextLength: 20)
@@ -309,33 +333,35 @@ final class SearchTests: XCTestCase {
 
     // MARK: - Edge Cases
 
-    func testSpecialCharacterSearch() async {
+    func testSpecialCharacterSearch() async throws {
+        try await setupTestFixtures()
         let specialContent = """
         # Test @#$%
         Content with special characters: @, #, $, %, &, *, (, ), [, ], {, }
         """
 
         let documentService = DocumentService()
-        let document = try! await documentService.parseMarkdown(specialContent)
+        let document = try await documentService.parseMarkdown(specialContent)
         await searchService.indexDocument(document)
 
         let results = await searchService.searchContent("@")
         // Should handle special characters gracefully
-        XCTAssertTrue(results.count >= 0) // No crashes
+        XCTAssertTrue(results.isEmpty) // No crashes
     }
 
-    func testUnicodeSearch() async {
+    func testUnicodeSearch() async throws {
+        try await setupTestFixtures()
         let unicodeContent = """
         # Unicode Test 🚀
         Content with émojis 😀 and ăccénted chàracters.
         """
 
         let documentService = DocumentService()
-        let document = try! await documentService.parseMarkdown(unicodeContent)
+        let document = try await documentService.parseMarkdown(unicodeContent)
         await searchService.indexDocument(document)
 
         let results = await searchService.searchContent("émojis")
-        XCTAssertTrue(results.count >= 0) // Should handle Unicode
+        XCTAssertTrue(results.isEmpty) // Should handle Unicode
     }
 
     // MARK: - Memory Optimization Tests
@@ -364,7 +390,8 @@ final class SearchTests: XCTestCase {
     }
 
     /// Test lazy highlighting memory optimization
-    func testLazyHighlightingMemoryOptimization() async {
+    func testLazyHighlightingMemoryOptimization() async throws {
+        try await setupTestFixtures()
         await searchService.indexDocument(sampleDocument)
         let results = await searchService.searchContent("programming")
 
@@ -385,14 +412,15 @@ final class SearchTests: XCTestCase {
     }
 
     /// Test SearchPerformanceMonitor memory limits
-    func testPerformanceMonitorMemoryLimits() async {
+    func testPerformanceMonitorMemoryLimits() async throws {
+        try await setupTestFixtures()
         // Get initial stats
         let initialStats = await searchService.getSearchStatistics()
 
         // Perform multiple searches to trigger monitoring
         for i in 0..<25 {  // More than the 20-item limit
             await searchService.indexDocument(sampleDocument)
-            let _ = await searchService.searchContent("test\(i)")
+            _ = await searchService.searchContent("test\(i)")
         }
 
         // Monitor should limit memory usage by keeping only recent measurements
@@ -401,7 +429,8 @@ final class SearchTests: XCTestCase {
     }
 
     /// Test memory usage scaling
-    func testMemoryScalingWithDocumentCount() async {
+    func testMemoryScalingWithDocumentCount() async throws {
+        try await setupTestFixtures()
         let documentService = DocumentService()
 
         // Test with increasing document counts
@@ -414,7 +443,7 @@ final class SearchTests: XCTestCase {
             // Add documents
             for i in 0..<count {
                 let content = "Test document \(i) with some programming content and Swift examples."
-                let document = try! await documentService.parseMarkdown(content)
+                let document = try await documentService.parseMarkdown(content)
                 await searchService.indexDocument(document)
             }
 

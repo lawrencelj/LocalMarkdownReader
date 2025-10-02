@@ -130,11 +130,7 @@ public struct ErrorView: View {
                 Button(action.title) {
                     action.handler()
                 }
-                #if os(iOS)
-                .buttonStyle(action.isPrimary ? .borderedProminent : .bordered)
-                #else
-                .buttonStyle(action.isPrimary ? .borderedProminent : .bordered)
-                #endif
+                .buttonStyle(.bordered)
                 .accessibilityLabel(action.accessibilityLabel ?? action.title)
             }
         }
@@ -507,19 +503,16 @@ struct ErrorView_Previews: PreviewProvider {
         ScrollView {
             VStack(spacing: 32) {
                 ErrorView.networkError(
-                    NetworkError.noConnection,
-                    retryAction: {}
-                )
+                    NetworkError.noConnection
+                )                    {}
 
                 ErrorView.fileError(
-                    FileError.notFound,
-                    retryAction: {}
-                )
+                    FileError.notFound
+                )                    {}
 
                 ErrorView.simple(
-                    FileError.corrupted,
-                    dismissAction: {}
-                )
+                    FileError.corrupted
+                )                    {}
             }
             .padding()
         }

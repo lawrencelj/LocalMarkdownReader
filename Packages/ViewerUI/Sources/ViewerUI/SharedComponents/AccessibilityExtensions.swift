@@ -4,8 +4,8 @@
 /// ensuring consistent accessibility behavior while respecting platform differences.
 /// Resolves UIAccessibility/NSAccessibility platform-specific issues.
 
-import SwiftUI
 import Foundation
+import SwiftUI
 
 #if os(iOS)
 import UIKit
@@ -17,7 +17,6 @@ import AppKit
 
 /// Cross-platform accessibility status provider
 public struct PlatformAccessibility {
-
     /// Whether VoiceOver/VoiceControl is currently running
     public static var isVoiceOverRunning: Bool {
         #if os(iOS)
@@ -70,7 +69,6 @@ public struct PlatformAccessibility {
 
 /// Cross-platform accessibility notification names
 public struct PlatformAccessibilityNotification {
-
     /// VoiceOver status change notification
     public static var voiceOverStatusDidChange: Notification.Name {
         #if os(iOS)
@@ -112,16 +110,17 @@ public struct PlatformAccessibilityNotification {
 
 /// Cross-platform accessibility announcement wrapper
 public struct AccessibilityAnnouncement {
-
     /// Post an accessibility announcement that will be read by screen readers
     /// - Parameter message: The message to announce
     public static func post(_ message: String) {
         #if os(iOS)
         UIAccessibility.post(notification: .announcement, argument: message)
         #elseif os(macOS)
-        NSAccessibility.post(element: NSApp, notification: .announcementRequested, userInfo: [
-            .announcementKey: message
-        ])
+        Task { @MainActor in
+            NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested, userInfo: [
+                .announcement: message
+            ])
+        }
         #endif
     }
 
@@ -131,7 +130,9 @@ public struct AccessibilityAnnouncement {
         #if os(iOS)
         UIAccessibility.post(notification: .layoutChanged, argument: element)
         #elseif os(macOS)
-        NSAccessibility.post(element: NSApp, notification: .layoutChanged)
+        Task { @MainActor in
+            NSAccessibility.post(element: NSApp as Any, notification: .layoutChanged)
+        }
         #endif
     }
 
@@ -141,7 +142,9 @@ public struct AccessibilityAnnouncement {
         #if os(iOS)
         UIAccessibility.post(notification: .screenChanged, argument: element)
         #elseif os(macOS)
-        NSAccessibility.post(element: NSApp, notification: .applicationActivated)
+        Task { @MainActor in
+            NSAccessibility.post(element: NSApp as Any, notification: .applicationActivated)
+        }
         #endif
     }
 }
@@ -150,13 +153,14 @@ public struct AccessibilityAnnouncement {
 
 extension AccessibilityNotification {
     /// Cross-platform announcement helper for SwiftUI
-    public static func announce(_ message: String) -> AccessibilityNotification {
+    public static func announce(_ message: String) -> AccessibilityNotification? {
         #if os(iOS)
         return .announcement(message)
         #elseif os(macOS)
         // Fallback to standard announcement for macOS
         AccessibilityAnnouncement.post(message)
-        return .announcement(message)
+        // Return nil for macOS as the announcement is already posted
+        return nil
         #endif
     }
 }
@@ -167,7 +171,7 @@ extension AccessibilityNotification {
 extension NSWorkspace {
     /// Whether VoiceOver is enabled (computed property for consistency with iOS)
     var isVoiceOverEnabled: Bool {
-        return accessibilityDisplayShouldDifferentiateWithoutColor ||
+        accessibilityDisplayShouldDifferentiateWithoutColor ||
                accessibilityDisplayShouldReduceMotion ||
                accessibilityDisplayShouldIncreaseContrast ||
                accessibilityDisplayShouldReduceTransparency
@@ -188,7 +192,7 @@ private struct AccessibilityStatusKey: EnvironmentKey {
 }
 
 /// Accessibility status information
-public struct AccessibilityStatus {
+public struct AccessibilityStatus: Sendable {
     public let isVoiceOverRunning: Bool
     public let isSwitchControlRunning: Bool
     public let isReduceMotionEnabled: Bool
@@ -205,12 +209,12 @@ public struct AccessibilityStatus {
 
     /// Whether any assistive technology is currently active
     public var hasAssistiveTechnology: Bool {
-        return isVoiceOverRunning || isSwitchControlRunning || isAssistiveTouchEnabled
+        isVoiceOverRunning || isSwitchControlRunning || isAssistiveTouchEnabled
     }
 
     /// Whether enhanced accessibility features should be enabled
     public var shouldEnhanceAccessibility: Bool {
-        return hasAssistiveTechnology || isHighContrastEnabled
+        hasAssistiveTechnology || isHighContrastEnabled
     }
 }
 
@@ -261,7 +265,6 @@ private struct AccessibilityEnhancementModifier: ViewModifier {
 #if DEBUG
 /// Accessibility testing utilities for development and testing
 public struct AccessibilityTesting {
-
     /// Simulate VoiceOver being enabled (for testing purposes)
     public static func simulateVoiceOver(_ enabled: Bool) {
         // This would be used in unit tests to simulate accessibility states
@@ -272,7 +275,7 @@ public struct AccessibilityTesting {
     public static func validateAccessibility<T: View>(_ view: T) -> [AccessibilityIssue] {
         // This would return a list of accessibility issues found in the view
         // Implementation would use platform-specific accessibility testing APIs
-        return []
+        []
     }
 }
 

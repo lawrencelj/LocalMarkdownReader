@@ -20,7 +20,7 @@ public class PreferencesService: ObservableObject {
 
     /// Get current theme
     public func getTheme() -> AppTheme {
-        return userPreferences.theme
+        userPreferences.theme
     }
 
     /// Set theme
@@ -30,7 +30,7 @@ public class PreferencesService: ObservableObject {
 
     /// Get accessibility settings
     public func getAccessibilitySettings() -> AccessibilitySettings {
-        return userPreferences.accessibilitySettings
+        userPreferences.accessibilitySettings
     }
 
     /// Set accessibility settings
@@ -42,7 +42,7 @@ public class PreferencesService: ObservableObject {
 
     /// Get all user preferences
     public func getAllPreferences() -> UserPreferencesData {
-        return UserPreferencesData(
+        UserPreferencesData(
             theme: userPreferences.theme,
             accessibilitySettings: userPreferences.accessibilitySettings,
             privacySettings: userPreferences.privacySettings,
@@ -69,7 +69,7 @@ public class PreferencesService: ObservableObject {
 
     /// Export settings
     public func exportSettings() throws -> Data {
-        return try settingsManager.exportSettings(userPreferences)
+        try settingsManager.exportSettings(userPreferences)
     }
 
     /// Import settings
@@ -80,7 +80,7 @@ public class PreferencesService: ObservableObject {
 
     /// Check if iCloud sync is available
     public func isICloudSyncAvailable() async -> Bool {
-        return await settingsManager.isICloudSyncAvailable()
+        await settingsManager.isICloudSyncAvailable()
     }
 
     /// Enable/disable iCloud sync
@@ -517,6 +517,6 @@ public struct UserPreferencesData: Codable, Sendable {
 extension PreferencesService {
     /// Create a preview service for development
     public static var preview: PreferencesService {
-        return PreferencesService(userDefaults: UserDefaults())
+        PreferencesService(userDefaults: UserDefaults())
     }
 }

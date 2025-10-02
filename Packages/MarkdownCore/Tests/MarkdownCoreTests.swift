@@ -3,9 +3,10 @@
 /// Comprehensive test suite covering document parsing, rendering,
 /// validation, and performance requirements.
 
-import XCTest
 @testable import MarkdownCore
+import XCTest
 
+@MainActor
 final class MarkdownCoreTests: XCTestCase {
     var documentService: DocumentService!
     var parser: MarkdownParser!
@@ -114,7 +115,8 @@ final class MarkdownCoreTests: XCTestCase {
         let emptyContent = ""
 
         // Valid content should parse successfully
-        XCTAssertNoThrow(try await documentService.parseMarkdown(validContent))
+        let validDocument = try await documentService.parseMarkdown(validContent)
+        XCTAssertNotNil(validDocument)
 
         // Empty content should return empty document
         let emptyDocument = try await documentService.parseMarkdown(emptyContent)
@@ -137,12 +139,12 @@ final class MarkdownCoreTests: XCTestCase {
 
     func testLargeDocumentHandling() async throws {
         // Create a large document (near 2MB limit)
-        let largeContent = String(repeating: "# Heading\nContent line.\n", count: 50000)
+        let largeContent = String(repeating: "# Heading\nContent line.\n", count: 50_000)
 
         // Should handle large documents within limits
         let document = try await documentService.parseMarkdown(largeContent)
         XCTAssertNotNil(document)
-        XCTAssertTrue(document.metadata.characterCount > 500000)
+        XCTAssertTrue(document.metadata.characterCount > 500_000)
     }
 
     // MARK: - Performance Tests
@@ -235,7 +237,7 @@ final class MarkdownCoreTests: XCTestCase {
         XCTAssertNotNil(reference.lastModified)
     }
 
-    func testDocumentModelCodable() throws {
+    func testDocumentModelCodable() async throws {
         let content = "# Test\nContent"
         let reference = DocumentReference(
             url: URL(fileURLWithPath: "/tmp/test.md"),
@@ -244,7 +246,7 @@ final class MarkdownCoreTests: XCTestCase {
         )
 
         let parser = MarkdownParser()
-        let attributedContent = try parser.parseToAttributedString(content)
+        let attributedContent = try await parser.parseToAttributedString(content)
         let metadata = DocumentMetadata(
             title: "Test",
             wordCount: 2,
@@ -266,7 +268,7 @@ final class MarkdownCoreTests: XCTestCase {
 
         // Test encoding
         let encoded = try JSONEncoder().encode(document)
-        XCTAssertTrue(encoded.count > 0)
+        XCTAssertTrue(!encoded.isEmpty)
 
         // Test decoding
         let decoded = try JSONDecoder().decode(DocumentModel.self, from: encoded)

@@ -4,21 +4,23 @@
 /// Implements platform-specific initialization, state coordination,
 /// and SwiftUI app lifecycle management following ADR-002 specifications.
 
-import SwiftUI
-import ViewerUI
-import MarkdownCore
 import FileAccess
+import MarkdownCore
 import Settings
+import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#endif
+import ViewerUI
 
 /// iOS Application Main Entry Point
 @main
 struct MarkdownReaderApp: App {
     // MARK: - App State Management
 
-    @StateObject private var coordinator = AppStateCoordinator()
-    @StateObject private var themeManager = ThemeManager()
-    @StateObject private var fileAccessManager = FileAccessManager()
+    @State private var coordinator = AppStateCoordinator()
+    @State private var themeManager = ThemeManager()
+    @State private var securityManager = SecurityManager.shared
 
     // MARK: - Scene Configuration
 
@@ -27,10 +29,11 @@ struct MarkdownReaderApp: App {
             ContentView()
                 .environment(coordinator)
                 .environment(\.themeManager, themeManager)
-                .environment(\.fileAccessManager, fileAccessManager)
+                .environment(\.securityManager, securityManager)
                 .onAppear {
                     setupApplication()
                 }
+#if canImport(UIKit)
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                     Task {
                         await coordinator.refreshState()
@@ -41,13 +44,16 @@ struct MarkdownReaderApp: App {
                         await coordinator.saveState()
                     }
                 }
+#endif
                 .task {
                     await initializeAppState()
                 }
         }
+        #if os(iOS)
         .backgroundTask(.appRefresh("com.markdownreader.refresh")) {
             await performBackgroundRefresh()
         }
+        #endif
         .commands {
             // iOS-specific commands (when running on iPad with external keyboard)
             CommandGroup(replacing: .newItem) {
@@ -91,8 +97,8 @@ struct MarkdownReaderApp: App {
     private func initializeAppState() async {
         // Initialize core app state
         await coordinator.initialize()
-        await themeManager.loadUserPreferences()
-        await fileAccessManager.requestPermissionsIfNeeded()
+        // ThemeManager loads preferences in its init() method
+        await securityManager.initialize()
 
         // Load user settings and restore session
         await coordinator.restoreState()
@@ -104,6 +110,7 @@ struct MarkdownReaderApp: App {
     }
 
     private func configureAppearance() {
+        #if canImport(UIKit)
         // Set up iOS-specific UI appearance
         UINavigationBar.appearance().prefersLargeTitles = true
         UITableView.appearance().backgroundColor = .clear
@@ -113,9 +120,11 @@ struct MarkdownReaderApp: App {
             // Use system typography scaling
             UIApplication.shared.preferredContentSizeCategory = .large
         }
+        #endif
     }
 
     private func configureAccessibility() {
+        #if canImport(UIKit)
         // Ensure VoiceOver and other accessibility features work properly
         UIAccessibility.shouldDifferentiateWithoutColor = true
 
@@ -127,9 +136,11 @@ struct MarkdownReaderApp: App {
         ) { _ in
             coordinator.accessibilityManager.updateVoiceOverStatus()
         }
+        #endif
     }
 
     private func configurePerformanceOptimizations() {
+        #if canImport(UIKit)
         // iOS-specific performance optimizations
 
         // Enable MetalKit acceleration for rendering (iOS 17+)
@@ -147,6 +158,7 @@ struct MarkdownReaderApp: App {
                 await coordinator.handleMemoryPressure()
             }
         }
+        #endif
     }
 
     private func registerNotificationHandlers() {
@@ -156,7 +168,9 @@ struct MarkdownReaderApp: App {
             object: nil,
             queue: .main
         ) { _ in
-            coordinator.uiState.showingDocumentPicker = true
+            Task { @MainActor in
+                coordinator.uiState.showingDocumentPicker = true
+            }
         }
 
         NotificationCenter.default.addObserver(
@@ -164,22 +178,23 @@ struct MarkdownReaderApp: App {
             object: nil,
             queue: .main
         ) { _ in
-            coordinator.uiState.searchVisible.toggle()
+            Task { @MainActor in
+                coordinator.uiState.searchVisible.toggle()
+            }
         }
     }
 
     private func performBackgroundRefresh() async {
         // Perform background tasks
         await coordinator.searchManager.updateIndex()
-        await fileAccessManager.refreshSecurityScopedResources()
+        await securityManager.cleanupExpiredAccess()
     }
 }
 
 // MARK: - Environment Extensions
 
 extension EnvironmentValues {
-    @Entry var themeManager: ThemeManager = ThemeManager()
-    @Entry var fileAccessManager: FileAccessManager = FileAccessManager()
+    @Entry var securityManager = SecurityManager.shared
 }
 
 // MARK: - Notification Names

@@ -4,9 +4,9 @@
 /// content highlighting, search history, and keyboard navigation support.
 /// Integrates with the Search module for backend functionality.
 
-import SwiftUI
-import Search
 import MarkdownCore
+import Search
+import SwiftUI
 
 /// Main search interface component with real-time filtering
 public struct SearchInterface: View {
@@ -18,14 +18,31 @@ public struct SearchInterface: View {
 
     // MARK: - Search State
 
-    @State private var isSearchFocused = false
     @State private var searchHistory: [String] = []
     @State private var showingHistory = false
-    @State private var searchOptions = SearchOptions()
+
+    // Search options state
+    @State private var caseSensitive = false
+    @State private var wholeWords = false
+    @State private var useRegex = false
+
+    // Computed search options
+    private var searchOptions: SearchOptions {
+        SearchOptions(
+            caseSensitive: caseSensitive,
+            wholeWords: wholeWords,
+            useRegex: useRegex
+        )
+    }
 
     // MARK: - Accessibility
 
+    @FocusState private var isSearchFocused: Bool
     @AccessibilityFocusState private var isSearchFieldFocused: Bool
+
+    // MARK: - Initialization
+
+    public init() {}
 
     // MARK: - View Body
 
@@ -157,17 +174,17 @@ public struct SearchInterface: View {
 
     private var searchOptionsView: some View {
         HStack(spacing: 16) {
-            Toggle("Case Sensitive", isOn: $searchOptions.caseSensitive)
+            Toggle("Case Sensitive", isOn: $caseSensitive)
                 .toggleStyle(.button)
                 .font(.caption)
                 .accessibilityLabel("Case sensitive search")
 
-            Toggle("Whole Words", isOn: $searchOptions.wholeWords)
+            Toggle("Whole Words", isOn: $wholeWords)
                 .toggleStyle(.button)
                 .font(.caption)
                 .accessibilityLabel("Whole words only")
 
-            Toggle("Regex", isOn: $searchOptions.useRegex)
+            Toggle("Regex", isOn: $useRegex)
                 .toggleStyle(.button)
                 .font(.caption)
                 .accessibilityLabel("Regular expression search")
@@ -180,9 +197,9 @@ public struct SearchInterface: View {
             .font(.caption)
             .foregroundStyle(.secondary)
         }
-        .onChange(of: searchOptions) { _, _ in
-            performSearchWithOptions()
-        }
+        .onChange(of: caseSensitive) { _, _ in performSearchWithOptions() }
+        .onChange(of: wholeWords) { _, _ in performSearchWithOptions() }
+        .onChange(of: useRegex) { _, _ in performSearchWithOptions() }
     }
 
     // MARK: - Search States
@@ -229,11 +246,10 @@ public struct SearchInterface: View {
                         SearchResultView(
                             result: coordinator.searchState.results[index],
                             index: index,
-                            isSelected: index == coordinator.searchState.currentResultIndex,
-                            onSelect: {
+                            isSelected: index == coordinator.searchState.currentResultIndex
+                        )                            {
                                 selectResult(at: index)
                             }
-                        )
                         .accessibilityElement(children: .combine)
                         .accessibilityAddTraits(index == coordinator.searchState.currentResultIndex ? [.isSelected] : [])
                     }
@@ -467,7 +483,6 @@ public struct SearchInterface: View {
         }
 
         // Announce selection for accessibility
-        let result = coordinator.searchState.results[index]
         let announcement = "Result \(index + 1) of \(coordinator.searchState.results.count)"
         AccessibilityNotification.Announcement(announcement).post()
     }
@@ -525,22 +540,16 @@ public struct SearchInterface: View {
     }
 }
 
-// MARK: - Search Options
-
-struct SearchOptions {
-    var caseSensitive: Bool = false
-    var wholeWords: Bool = false
-    var useRegex: Bool = false
-}
+// SearchOptions is now imported from Search module
 
 // MARK: - Preview
 
-#Preview("Search Interface") {
-    SearchInterface()
-        .environment(AppStateCoordinator.preview)
+#if DEBUG
+struct SearchInterface_Previews: PreviewProvider {
+    static var previews: some View {
+        SearchInterface()
+            .environment(AppStateCoordinator())
+            .previewDisplayName("Search Interface")
+    }
 }
-
-#Preview("Search Interface - With Results") {
-    SearchInterface()
-        .environment(AppStateCoordinator.previewWithSearch)
-}
+#endif

@@ -213,15 +213,15 @@ extension Color {
             traitCollection.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light)
         })
         #elseif os(macOS)
-        return Color(nsColor: NSColor.init(name: nil, dynamicProvider: { appearance in
+        return Color(nsColor: NSColor(name: nil) { appearance in
             appearance.name == .darkAqua ? NSColor(dark) : NSColor(light)
-        }))
+        })
         #endif
     }
 
     /// Safe opacity modifier that ensures the result is still a Color
     func safeOpacity(_ opacity: Double) -> Color {
-        return self.opacity(min(max(opacity, 0.0), 1.0))
+        self.opacity(min(max(opacity, 0.0), 1.0))
     }
 }
 
@@ -277,6 +277,6 @@ extension Color {
     /// Returns true if the color is suitable for text on the current background
     var isAccessible: Bool {
         // Simplified accessibility check - in production, would use WCAG contrast ratios
-        return true
+        true
     }
 }

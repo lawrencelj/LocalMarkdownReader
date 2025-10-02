@@ -84,7 +84,7 @@ public actor SettingsManager {
 
     /// Check if iCloud sync is available
     public func isICloudSyncAvailable() -> Bool {
-        return FileManager.default.ubiquityIdentityToken != nil
+        FileManager.default.ubiquityIdentityToken != nil
     }
 
     /// Enable iCloud sync
@@ -127,7 +127,7 @@ public actor SettingsManager {
 
     /// Check if migration is needed
     public func migrationNeeded(from version: String) -> Bool {
-        return version != "1.0.0"
+        version != "1.0.0"
     }
 
     // MARK: - Settings Validation
@@ -201,7 +201,7 @@ public actor SettingsManager {
 
     /// Get predefined settings templates
     public func getSettingsTemplates() -> [SettingsTemplate] {
-        return [
+        [
             SettingsTemplate(
                 name: "Default",
                 description: "Balanced settings for general use",

@@ -7,14 +7,14 @@
 /// 4. Memory leaks in continuation handling
 /// 5. OWASP Mobile Top 10 compliance gaps
 
-import XCTest
-import Foundation
 import CryptoKit
 @testable import FileAccess
+import Foundation
+import XCTest
 
 @available(iOS 17.0, macOS 14.0, *)
+@MainActor
 final class SecurityTests: XCTestCase {
-
     var securityManager: SecurityManager!
     var fileService: FileService!
     var tempDirectory: URL!
@@ -51,7 +51,7 @@ final class SecurityTests: XCTestCase {
 
         // Test scoped access doesn't leak resources
         let result = try await securityManager.withSecurityScopedAccess(to: testFile) {
-            return "Operation completed"
+            "Operation completed"
         }
         XCTAssertEqual(result, "Operation completed", "Scoped operation should complete successfully")
 
@@ -102,7 +102,7 @@ final class SecurityTests: XCTestCase {
         let invalidURLs = [
             URL(string: "http://example.com/test.md")!,
             URL(string: "ftp://example.com/test.md")!,
-            URL(fileURLWithPath: ""), // Empty path
+            URL(fileURLWithPath: "") // Empty path
         ]
 
         for invalidURL in invalidURLs {
@@ -209,7 +209,7 @@ final class SecurityTests: XCTestCase {
         }
 
         // Test oversized bookmark rejection
-        let oversizedBookmark = Data(repeating: 0xFF, count: 20000)
+        let oversizedBookmark = Data(repeating: 0xFF, count: 20_000)
         do {
             _ = try await fileService.resolveBookmark(oversizedBookmark)
             XCTFail("Should reject oversized bookmark")
@@ -330,7 +330,6 @@ final class SecurityTests: XCTestCase {
 // MARK: - Test Extensions
 
 extension SecurityTests {
-
     /// Helper method to create test files with various characteristics
     private func createTestFile(name: String, content: String, size: Int? = nil) throws -> URL {
         let fileURL = tempDirectory.appendingPathComponent(name)

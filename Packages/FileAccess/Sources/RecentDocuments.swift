@@ -3,13 +3,13 @@
 /// Manages a list of recently opened documents with enhanced privacy protection,
 /// secure storage, and OWASP Mobile Top 10 compliance.
 
-import Foundation
 import CryptoKit
+import Foundation
 import os.log
 
 /// Recent documents manager with enhanced privacy protection and security
+@MainActor
 public class RecentDocuments: ObservableObject {
-
     // MARK: - Security Enhancement
 
     private let logger = Logger(subsystem: "com.markdownreader.fileaccess", category: "recent-documents")
@@ -72,12 +72,12 @@ public class RecentDocuments: ObservableObject {
 
     /// Get list of recent document URLs (for frontend compatibility)
     public func getRecentDocuments() -> [URL] {
-        return recentDocuments.map { $0.url }
+        recentDocuments.map { $0.url }
     }
 
     /// Get detailed recent documents
     public func getRecentDocumentDetails() -> [RecentDocument] {
-        return recentDocuments
+        recentDocuments
     }
 
     /// Add document to recent list with security validation
@@ -91,14 +91,14 @@ public class RecentDocuments: ObservableObject {
             return
         }
 
-        Task { @MainActor in
+        Task {
             await addRecentDocumentAsync(url)
         }
     }
 
     /// Add document with security-scoped bookmark
     public func addRecentDocument(_ url: URL, bookmark: Data?) {
-        Task { @MainActor in
+        Task {
             await addRecentDocumentWithBookmark(url, bookmark: bookmark)
         }
     }
@@ -144,12 +144,12 @@ public class RecentDocuments: ObservableObject {
 
     /// Check if document is in recent list
     public func contains(_ url: URL) -> Bool {
-        return recentDocuments.contains { $0.url == url }
+        recentDocuments.contains { $0.url == url }
     }
 
     /// Get bookmark data for URL
     public func getBookmark(for url: URL) -> Data? {
-        return recentDocuments.first { $0.url == url }?.bookmark
+        recentDocuments.first { $0.url == url }?.bookmark
     }
 
     // MARK: - Private Implementation
@@ -327,6 +327,6 @@ extension RecentDocuments {
 
     /// Empty preview instance
     public static var previewEmpty: RecentDocuments {
-        return RecentDocuments(userDefaults: UserDefaults())
+        RecentDocuments(userDefaults: UserDefaults())
     }
 }

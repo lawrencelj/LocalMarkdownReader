@@ -5,6 +5,17 @@
 
 import Foundation
 
+/// Simplified document reference for Settings module
+public struct FileReference: Sendable, Codable, Hashable {
+    public let url: URL
+    public let lastModified: Date
+
+    public init(url: URL, lastModified: Date = Date()) {
+        self.url = url
+        self.lastModified = lastModified
+    }
+}
+
 /// User preferences manager with automatic persistence
 @MainActor
 public class UserPreferences: ObservableObject {
@@ -43,7 +54,7 @@ public class UserPreferences: ObservableObject {
 
     // MARK: - Recent Files and State
 
-    private var recentFiles: [URL] = []
+    private var recentFileURLs: [URL] = []
     private var lastDocument: URL?
     private var scrollPositions: [URL: CGFloat] = [:]
     private var sidebarVisibility: Bool = true
@@ -108,7 +119,7 @@ public class UserPreferences: ObservableObject {
         iCloudSyncEnabled = false
 
         // Clear recent files and state
-        recentFiles.removeAll()
+        recentFileURLs.removeAll()
         lastDocument = nil
         scrollPositions.removeAll()
         sidebarVisibility = true
@@ -121,15 +132,15 @@ public class UserPreferences: ObservableObject {
 
     /// Add file to recent files list
     public func addRecentFile(_ url: URL) async {
-        if let index = recentFiles.firstIndex(of: url) {
-            recentFiles.remove(at: index)
+        if let index = recentFileURLs.firstIndex(of: url) {
+            recentFileURLs.remove(at: index)
         }
-        recentFiles.insert(url, at: 0)
+        recentFileURLs.insert(url, at: 0)
 
         // Limit to maximum count
         let maxCount = performanceSettings.maxRecentFiles
-        if recentFiles.count > maxCount {
-            recentFiles = Array(recentFiles.prefix(maxCount))
+        if recentFileURLs.count > maxCount {
+            recentFileURLs = Array(recentFileURLs.prefix(maxCount))
         }
 
         saveRecentFiles()
@@ -137,19 +148,45 @@ public class UserPreferences: ObservableObject {
 
     /// Get recent files list
     public func getRecentFiles() -> [URL] {
-        return recentFiles
+        recentFileURLs
+    }
+
+    /// Get recent files as file references
+    public var recentFiles: [FileReference] {
+        getRecentFiles().map { url in
+            FileReference(url: url)
+        }
     }
 
     /// Remove file from recent files
     public func removeRecentFile(_ url: URL) {
-        recentFiles.removeAll { $0 == url }
+        recentFileURLs.removeAll { $0 == url }
+        saveRecentFiles()
+    }
+
+    /// Update recent files list
+    public func updateRecentFiles(_ files: [FileReference]) async {
+        self.recentFileURLs = files.map { $0.url }
         saveRecentFiles()
     }
 
     /// Clear all recent files
-    public func clearRecentFiles() {
-        recentFiles.removeAll()
+    public func clearRecentFiles() async {
+        recentFileURLs.removeAll()
         saveRecentFiles()
+    }
+
+    /// Refresh recent files list (validate file existence)
+    public func refreshRecentFiles() async {
+        let fileManager = FileManager.default
+        let validFiles = recentFileURLs.filter { url in
+            fileManager.fileExists(atPath: url.path)
+        }
+
+        if validFiles.count != recentFileURLs.count {
+            recentFileURLs = validFiles
+            saveRecentFiles()
+        }
     }
 
     // MARK: - Document State Management
@@ -162,7 +199,7 @@ public class UserPreferences: ObservableObject {
 
     /// Get last opened document
     public func getLastDocument() async -> URL? {
-        return lastDocument
+        lastDocument
     }
 
     /// Save scroll position for document
@@ -174,7 +211,7 @@ public class UserPreferences: ObservableObject {
 
     /// Get scroll position for document
     public func getScrollPosition(for url: URL) async -> CGFloat? {
-        return scrollPositions[url]
+        scrollPositions[url]
     }
 
     /// Set sidebar visibility
@@ -185,7 +222,7 @@ public class UserPreferences: ObservableObject {
 
     /// Get sidebar visibility
     public func getSidebarVisibility() async -> Bool {
-        return sidebarVisibility
+        sidebarVisibility
     }
 
     /// Set search visibility
@@ -196,7 +233,7 @@ public class UserPreferences: ObservableObject {
 
     /// Get search visibility
     public func getSearchVisibility() async -> Bool {
-        return searchVisibility
+        searchVisibility
     }
 
     // MARK: - Private Implementation
@@ -322,12 +359,12 @@ public class UserPreferences: ObservableObject {
     private func loadRecentFiles() {
         if let data = getData(for: StorageKeys.recentFiles),
            let decoded = try? JSONDecoder().decode([URL].self, from: data) {
-            recentFiles = decoded
+            recentFileURLs = decoded
         }
     }
 
     private func saveRecentFiles() {
-        if let encoded = try? JSONEncoder().encode(recentFiles) {
+        if let encoded = try? JSONEncoder().encode(recentFileURLs) {
             setData(encoded, for: StorageKeys.recentFiles)
         }
     }
@@ -450,6 +487,6 @@ extension UserPreferences {
 
     /// Empty preview instance
     public static var previewEmpty: UserPreferences {
-        return UserPreferences(userDefaults: UserDefaults())
+        UserPreferences(userDefaults: UserDefaults())
     }
 }

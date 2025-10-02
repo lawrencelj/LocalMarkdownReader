@@ -8,7 +8,6 @@ import MarkdownCore
 
 /// Memory benchmark system for Search package optimization validation
 public actor MemoryBenchmark {
-
     // MARK: - Memory Tracking
 
     /// Memory measurement result
@@ -20,7 +19,7 @@ public actor MemoryBenchmark {
         public let termCount: Int
 
         public var memoryUsedMB: Double {
-            return Double(memoryUsed) / 1_048_576  // Convert to MB
+            Double(memoryUsed) / 1_048_576  // Convert to MB
         }
 
         public init(operation: String, memoryUsed: Int64, documentCount: Int, termCount: Int) {
@@ -42,11 +41,11 @@ public actor MemoryBenchmark {
         public let memoryEfficiency: Double  // MB per 1000 terms
 
         public var targetAchieved: Bool {
-            return optimizedMemory.memoryUsedMB < 50.0  // Target <50MB
+            optimizedMemory.memoryUsedMB < 50.0  // Target <50MB
         }
 
         public var performanceTargetMet: Bool {
-            return averageSearchTime < 0.1  // Target <100ms
+            averageSearchTime < 0.1  // Target <100ms
         }
     }
 
@@ -58,7 +57,7 @@ public actor MemoryBenchmark {
     /// Get current memory usage in bytes
     private func getCurrentMemoryUsage() -> Int64 {
         var info = mach_task_basic_info()
-        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size)/4
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
 
         let kerr: kern_return_t = withUnsafeMutablePointer(to: &info) {
             $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
@@ -259,16 +258,16 @@ public actor MemoryBenchmark {
 
     /// Estimate term count in content
     private func estimateTermCount(_ content: String) -> Int {
-        return content.components(separatedBy: CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters))
+        content.components(separatedBy: CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters))
             .filter { !$0.isEmpty }
             .count
     }
 
     /// Print detailed benchmark results
     private func printBenchmarkResults(_ results: BenchmarkResults) {
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("📊 SEARCH PACKAGE MEMORY OPTIMIZATION RESULTS")
-        print("="*60)
+        print("=" * 60)
 
         print("🎯 MEMORY TARGETS:")
         print("   Original Usage: ~150MB (estimated)")
@@ -307,7 +306,7 @@ public actor MemoryBenchmark {
             }
         }
 
-        print("="*60 + "\n")
+        print("=" * 60 + "\n")
     }
 
     // MARK: - Memory Monitoring
@@ -325,7 +324,7 @@ public actor MemoryBenchmark {
 
     /// Monitor memory usage over time
     public func startMemoryMonitoring(interval: TimeInterval = 5.0) -> AsyncStream<MemoryMeasurement> {
-        return AsyncStream { continuation in
+        AsyncStream { continuation in
             Task {
                 while !Task.isCancelled {
                     let stats = await searchEngine.getStatistics()
@@ -350,7 +349,7 @@ public actor MemoryBenchmark {
 // MARK: - String Extensions
 
 private extension String {
-    static func *(lhs: String, rhs: Int) -> String {
-        return String(repeating: lhs, count: rhs)
+    static func * (lhs: String, rhs: Int) -> String {
+        String(repeating: lhs, count: rhs)
     }
 }

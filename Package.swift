@@ -41,6 +41,7 @@ let package = Package(
                 "Settings"
             ],
             path: "Apps/MarkdownReader-iOS",
+            exclude: ["Info.plist"],
             resources: [
                 .process("Assets.xcassets")
             ]
@@ -57,6 +58,7 @@ let package = Package(
                 "Settings"
             ],
             path: "Apps/MarkdownReader-macOS",
+            exclude: ["Info.plist"],
             resources: [
                 .process("Assets.xcassets")
             ]
@@ -82,6 +84,7 @@ let package = Package(
             name: "ViewerUI",
             dependencies: [
                 "MarkdownCore",
+                "Search",
                 "Settings"
             ],
             path: "Packages/ViewerUI/Sources",

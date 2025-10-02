@@ -4,9 +4,9 @@
 /// and cross-platform adaptation. Implements viewport-based rendering for large documents
 /// while maintaining 60fps performance.
 
-import SwiftUI
 import MarkdownCore
 import Settings
+import SwiftUI
 
 /// Main document viewer component with performance optimization
 public struct DocumentViewer: View {
@@ -27,6 +27,10 @@ public struct DocumentViewer: View {
     @State private var lastScrollPosition: CGFloat = 0
     @State private var viewportBounds: CGRect = .zero
     @State private var isPerformanceOptimized = true
+
+    // MARK: - Initialization
+
+    public init() {}
 
     // MARK: - View Body
 
@@ -61,13 +65,12 @@ public struct DocumentViewer: View {
             loadingView
         } else if let error = coordinator.documentState.parseError {
             ErrorView(
-                error: error,
-                retryAction: {
+                error: error
+            )                {
                     Task {
                         await coordinator.retryDocumentLoad()
                     }
                 }
-            )
         } else if coordinator.documentState.currentDocument != nil {
             documentContentView(in: geometry)
         } else {
@@ -92,20 +95,23 @@ public struct DocumentViewer: View {
             .padding(.horizontal, horizontalPadding)
             .padding(.vertical, 20)
         }
-        .scrollPosition(id: coordinator.documentState.scrollPosition)
+        // ScrollPosition is handled via onScrollGeometryChange below
         .scrollIndicators(platform.supportsCursor ? .visible : .hidden)
         .coordinateSpace(name: "documentScroll")
-        .onScrollGeometryChange(for: CGFloat.self) { geometry in
-            geometry.contentOffset.y
-        } action: { oldValue, newValue in
-            handleScrollChange(from: oldValue, to: newValue)
-        }
+        // Handle scroll position tracking with platform compatibility
+        .modifier(ScrollTrackingModifier(onScrollChange: handleScrollChange))
         .refreshable {
             await coordinator.refreshDocument()
         }
         .searchable(
             text: searchBinding,
-            placement: .navigationBarDrawer(displayMode: .always)
+            placement: {
+                #if os(iOS)
+                return platform.isIOS ? .navigationBarDrawer(displayMode: .always) : .automatic
+                #else
+                return .automatic
+                #endif
+            }()
         )
         .platformConditional(.macOS) { view in
             view
@@ -162,8 +168,8 @@ public struct DocumentViewer: View {
             return "No document loaded"
         }
 
-        let wordCount = document.wordCount
-        let readingTime = document.estimatedReadingTime
+        let wordCount = document.metadata.wordCount
+        let readingTime = document.metadata.estimatedReadingTime
 
         return "Document with \(wordCount) words, estimated reading time \(readingTime) minutes"
     }
@@ -224,7 +230,7 @@ public struct DocumentViewer: View {
     private func announceDocumentLoaded() {
         guard let document = coordinator.documentState.currentDocument else { return }
 
-        let announcement = "Document loaded: \(document.title ?? "Untitled"), \(document.wordCount) words"
+        let announcement = "Document loaded: \(document.metadata.title ?? "Untitled"), \(document.metadata.wordCount) words"
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             AccessibilityNotification.Announcement(announcement)
@@ -275,21 +281,34 @@ public struct DocumentViewer: View {
     }
 }
 
-// MARK: - Preview
+// MARK: - Platform-Specific Scroll Tracking
 
-#Preview("Document Viewer") {
-    DocumentViewer()
-        .environment(AppStateCoordinator.preview)
-        .preferredColorScheme(.light)
-}
+struct ScrollTrackingModifier: ViewModifier {
+    let onScrollChange: (CGFloat, CGFloat) -> Void
 
-#Preview("Document Viewer - Dark") {
-    DocumentViewer()
-        .environment(AppStateCoordinator.preview)
-        .preferredColorScheme(.dark)
-}
-
-#Preview("Document Viewer - Loading") {
-    DocumentViewer()
-        .environment(AppStateCoordinator.previewLoading)
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        if #available(iOS 17.0, *) {
+            content.onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y
+            } action: { oldValue, newValue in
+                onScrollChange(oldValue, newValue)
+            }
+        } else {
+            content
+        }
+        #elseif os(macOS)
+        if #available(macOS 15.0, *) {
+            content.onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y
+            } action: { oldValue, newValue in
+                onScrollChange(oldValue, newValue)
+            }
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
+    }
 }

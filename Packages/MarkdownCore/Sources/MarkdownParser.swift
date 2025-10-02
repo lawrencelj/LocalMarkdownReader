@@ -68,7 +68,7 @@ public actor MarkdownParser {
 
     /// Parse markdown content to DocumentModel
     public func parseDocument(content: String, reference: DocumentReference) async throws -> DocumentModel {
-        return try await performanceMonitor.trackOperation("parse_document") {
+        try await performanceMonitor.trackOperation("parse_document") {
             // Validate input
             try await validator.validateContent(content)
 
@@ -112,7 +112,7 @@ public actor MarkdownParser {
 
     /// Extract document outline (headings)
     public func extractOutline(from content: String) async throws -> [HeadingItem] {
-        return try await performanceMonitor.trackOperation("extract_outline") {
+        try await performanceMonitor.trackOperation("extract_outline") {
             let document = Document(parsing: content, options: buildParsingOptions())
             let extractor = ContentExtractor()
             return try await extractor.extractHeadings(from: document, content: content)
@@ -121,7 +121,7 @@ public actor MarkdownParser {
 
     /// Extract document metadata
     public func extractMetadata(from content: String, reference: DocumentReference) async throws -> DocumentMetadata {
-        return try await performanceMonitor.trackOperation("extract_metadata") {
+        try await performanceMonitor.trackOperation("extract_metadata") {
             let document = Document(parsing: content, options: buildParsingOptions())
             let extractor = ContentExtractor()
             return try await extractor.extractMetadata(from: document, content: content, reference: reference)

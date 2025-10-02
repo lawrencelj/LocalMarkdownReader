@@ -4,11 +4,13 @@
 /// memory efficiency, scroll performance, and load time optimization across
 /// various document sizes and complexity scenarios.
 
-import XCTest
+@testable import MarkdownCore
+@testable import Search
 import SwiftUI
 @testable import ViewerUI
-@testable import MarkdownCore
+import XCTest
 
+@MainActor
 final class PerformanceTests: XCTestCase {
     // MARK: - Test Properties
 
@@ -403,7 +405,7 @@ final class PerformanceTests: XCTestCase {
 
     private func getCurrentMemoryUsage() -> Int {
         var info = mach_task_basic_info()
-        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size)/4
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
 
         let kerr: kern_return_t = withUnsafeMutablePointer(to: &info) {
             $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
@@ -450,18 +452,19 @@ final class PerformanceTests: XCTestCase {
         let content = baseContent + String(repeating: "\n\nAdditional content paragraph with meaningful text that simulates real document content.", count: multiplier)
 
         return DocumentModel(
-            id: UUID(),
             reference: DocumentReference.mock(),
-            title: "Performance Test Document",
             content: content,
             attributedContent: AttributedString(content),
             metadata: DocumentMetadata(
                 title: "Performance Test Document",
                 wordCount: multiplier * 10,
+                characterCount: content.count,
+                lineCount: content.components(separatedBy: "\n").count,
                 estimatedReadingTime: multiplier / 10,
                 lastModified: Date(),
                 fileSize: Int64(content.count)
-            )
+            ),
+            outline: []
         )
     }
 
@@ -503,15 +506,17 @@ final class PerformanceTests: XCTestCase {
     }
 
     private func createMockSearchResults(count: Int) -> [SearchResult] {
-        return (0..<count).map { index in
+        (0..<count).map { index in
             SearchResult(
-                id: UUID(),
-                matchedText: "test",
+                documentId: UUID(),
+                text: "test",
+                context: "This is test result number \(index)",
                 range: NSRange(location: index * 50, length: 4),
                 lineNumber: index + 1,
-                surroundingContext: "This is test result number \(index)",
-                matchType: .exactMatch,
-                containingHeading: index % 5 == 0 ? "Heading \(index / 5)" : nil
+                columnNumber: 0,
+                relevanceScore: 0.9,
+                matchType: .content,
+                headingContext: index % 5 == 0 ? "Heading \(index / 5)" : nil
             )
         }
     }
@@ -565,7 +570,7 @@ class PerformanceMonitor {
 
     func getCurrentMemoryUsage() -> Int {
         var info = mach_task_basic_info()
-        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size)/4
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
 
         let kerr: kern_return_t = withUnsafeMutablePointer(to: &info) {
             $0.withMemoryRebound(to: integer_t.self, capacity: 1) {

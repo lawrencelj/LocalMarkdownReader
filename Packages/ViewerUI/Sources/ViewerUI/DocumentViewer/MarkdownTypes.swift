@@ -3,8 +3,8 @@
 /// Provides type definitions needed for markdown content rendering,
 /// including rendered sections, elements, and rendering state management.
 
-import SwiftUI
 import Foundation
+import SwiftUI
 
 // MARK: - Rendered Section
 
@@ -122,7 +122,7 @@ public enum ListStyle {
 extension MarkdownElement {
     /// Whether this element has child elements
     public var hasChildren: Bool {
-        return children?.isEmpty == false
+        children?.isEmpty == false
     }
 
     /// Flattened list of all descendant elements
@@ -141,12 +141,12 @@ extension MarkdownElement {
 
     /// Find first child element of specified type
     public func firstChild(ofType type: ElementType) -> MarkdownElement? {
-        return children?.first { $0.type == type }
+        children?.first { $0.type == type }
     }
 
     /// Find all child elements of specified type
     public func children(ofType type: ElementType) -> [MarkdownElement] {
-        return children?.filter { $0.type == type } ?? []
+        children?.filter { $0.type == type } ?? []
     }
 }
 
@@ -205,7 +205,7 @@ extension ListStyle: Equatable {
 extension RenderedSection {
     /// Create preview rendered sections for development
     public static var previewSections: [RenderedSection] {
-        return [
+        [
             RenderedSection(
                 id: "section-1",
                 range: NSRange(location: 0, length: 50),
@@ -227,7 +227,7 @@ extension RenderedSection {
 extension MarkdownElement {
     /// Create preview markdown elements for development
     public static var previewElements: [MarkdownElement] {
-        return [
+        [
             MarkdownElement(
                 type: .heading(level: 1),
                 content: "Sample Document",

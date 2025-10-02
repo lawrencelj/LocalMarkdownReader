@@ -4,10 +4,16 @@
 /// platform-specific interactions, and full ViewerUI integration.
 /// Follows iOS Human Interface Guidelines and ADR-002 specifications.
 
-import SwiftUI
-import ViewerUI
-import MarkdownCore
 import FileAccess
+import MarkdownCore
+import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
+#if canImport(AppKit)
+import AppKit
+#endif
+import ViewerUI
 
 /// Main iOS application interface with adaptive layout
 struct ContentView: View {
@@ -52,11 +58,15 @@ struct ContentView: View {
             await coordinator.restoreState()
         }
         .sheet(isPresented: $showingDocumentPicker) {
+            #if canImport(UIKit)
             DocumentPickerView { url in
                 Task {
                     await loadDocument(from: url)
                 }
             }
+            #else
+            Text("Document picker not available on this platform")
+            #endif
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
@@ -70,7 +80,9 @@ struct ContentView: View {
             NavigationStack(path: $navigationPath) {
                 documentContentView
                     .navigationTitle("Document")
+                    #if os(iOS)
                     .navigationBarTitleDisplayMode(.inline)
+                    #endif
                     .toolbar {
                         documentToolbar
                     }
@@ -83,7 +95,9 @@ struct ContentView: View {
             NavigationStack {
                 NavigationSidebar()
                     .navigationTitle("Outline")
+                    #if os(iOS)
                     .navigationBarTitleDisplayMode(.inline)
+                    #endif
             }
             .tabItem {
                 Label("Outline", systemImage: "list.bullet")
@@ -91,9 +105,11 @@ struct ContentView: View {
             .tag(NavigationDestination.outline)
 
             NavigationStack {
-                SearchInterface()
+                SearchInterface(coordinator: coordinator)
                     .navigationTitle("Search")
+                    #if os(iOS)
                     .navigationBarTitleDisplayMode(.inline)
+                    #endif
             }
             .tabItem {
                 Label("Search", systemImage: "magnifyingglass")
@@ -144,10 +160,17 @@ struct ContentView: View {
             }
 
             Section {
+                Button("New Document") {
+                    Task {
+                        await createNewDocument()
+                    }
+                }
+                .accessibilityLabel("Create a new markdown document")
+
                 Button("Open Document") {
                     showingDocumentPicker = true
                 }
-                .accessibilityLabel("Open a new markdown document")
+                .accessibilityLabel("Open an existing markdown document")
 
                 if !coordinator.userPreferences.recentFiles.isEmpty {
                     NavigationLink("Recent Files", value: NavigationDestination.recent)
@@ -161,14 +184,25 @@ struct ContentView: View {
             }
         }
         .navigationTitle("Markdown Reader")
+        #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
+        #endif
         .toolbar {
+            #if os(iOS)
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Settings") {
                     showingSettings = true
                 }
                 .accessibilityLabel("Open settings")
             }
+            #else
+            ToolbarItem(placement: .primaryAction) {
+                Button("Settings") {
+                    showingSettings = true
+                }
+                .accessibilityLabel("Open settings")
+            }
+            #endif
         }
     }
 
@@ -180,22 +214,30 @@ struct ContentView: View {
         case .outline:
             NavigationSidebar()
                 .navigationTitle("Outline")
+                #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
+                #endif
 
         case .search:
-            SearchInterface()
+            SearchInterface(coordinator: coordinator)
                 .navigationTitle("Search")
+                #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
+                #endif
 
         case .recent:
             RecentFilesView()
                 .navigationTitle("Recent Files")
+                #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
+                #endif
 
         case .settings:
             SettingsView()
                 .navigationTitle("Settings")
+                #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
+                #endif
 
         default:
             Text("Select a section from the sidebar")
@@ -211,7 +253,9 @@ struct ContentView: View {
             if coordinator.documentState.currentDocument != nil {
                 DocumentViewer()
                     .navigationTitle(documentTitle)
+                    #if os(iOS)
                     .navigationBarTitleDisplayMode(.inline)
+                    #endif
                     .toolbar {
                         if !useTabNavigation {
                             documentToolbar
@@ -227,7 +271,9 @@ struct ContentView: View {
                     }
                 )
                 .navigationTitle("Markdown Reader")
+                #if os(iOS)
                 .navigationBarTitleDisplayMode(.large)
+                #endif
             }
         }
     }
@@ -236,7 +282,7 @@ struct ContentView: View {
 
     @ToolbarContentBuilder
     private var documentToolbar: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigationBarTrailing) {
+        ToolbarItemGroup(placement: toolbarPlacement) {
             if coordinator.documentState.currentDocument != nil {
                 Button {
                     // Toggle search
@@ -247,6 +293,12 @@ struct ContentView: View {
                 .accessibilityLabel("Toggle search")
 
                 Menu {
+                    Button("New Document") {
+                        Task {
+                            await createNewDocument()
+                        }
+                    }
+
                     Button("Open Document") {
                         showingDocumentPicker = true
                     }
@@ -276,7 +328,15 @@ struct ContentView: View {
     // MARK: - Computed Properties
 
     private var documentTitle: String {
-        coordinator.documentState.currentDocument?.title ?? "Document"
+        coordinator.documentState.currentDocument?.reference.url.lastPathComponent ?? "Document"
+    }
+
+    private var toolbarPlacement: ToolbarItemPlacement {
+        #if os(iOS)
+        return .navigationBarTrailing
+        #else
+        return .primaryAction
+        #endif
     }
 
     // MARK: - Actions
@@ -289,6 +349,7 @@ struct ContentView: View {
     private func shareDocument() {
         guard let document = coordinator.documentState.currentDocument else { return }
 
+        #if canImport(UIKit) && os(iOS)
         let activityVC = UIActivityViewController(
             activityItems: [document.reference.url],
             applicationActivities: nil
@@ -297,6 +358,30 @@ struct ContentView: View {
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let window = windowScene.windows.first {
             window.rootViewController?.present(activityVC, animated: true)
+        }
+        #elseif canImport(AppKit) && os(macOS)
+        let sharingPicker = NSSharingServicePicker(items: [document.reference.url])
+        if let window = NSApplication.shared.keyWindow,
+           let contentView = window.contentView {
+            sharingPicker.show(relativeTo: NSRect.zero, of: contentView, preferredEdge: NSRectEdge.minY)
+        }
+        #else
+        // Fallback for other platforms - just print for now
+        print("Share not implemented for this platform")
+        #endif
+    }
+
+    private func createNewDocument() async {
+        do {
+            // Access FileService through coordinator
+            let fileService = FileService()
+            let url = try await fileService.createNewDocument()
+            
+            // Load the newly created document
+            await loadDocument(from: url)
+        } catch {
+            // Handle error appropriately
+            print("Failed to create new document: \(error)")
         }
     }
 
@@ -350,6 +435,7 @@ enum NavigationDestination: String, CaseIterable {
 
 // MARK: - Document Picker
 
+#if canImport(UIKit)
 private struct DocumentPickerView: UIViewControllerRepresentable {
     let onDocumentSelected: (URL) -> Void
 
@@ -381,6 +467,7 @@ private struct DocumentPickerView: UIViewControllerRepresentable {
         }
     }
 }
+#endif
 
 // MARK: - Recent Files View
 
@@ -392,7 +479,11 @@ private struct RecentFilesView: View {
             ForEach(coordinator.userPreferences.recentFiles, id: \.url) { reference in
                 Button {
                     Task {
-                        await coordinator.loadDocument(reference)
+                        let docRef = DocumentReference(
+                            url: reference.url,
+                            lastModified: reference.lastModified
+                        )
+                        await coordinator.loadDocument(docRef)
                     }
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
@@ -466,13 +557,23 @@ private struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
+                #if os(iOS)
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
                         dismiss()
                     }
                 }
+                #else
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+                #endif
             }
         }
     }
@@ -512,7 +613,9 @@ private struct AboutView: View {
             }
         }
         .navigationTitle("About")
+        #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        #endif
     }
 }
 

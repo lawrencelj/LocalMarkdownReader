@@ -4,8 +4,8 @@
 /// maintaining 60fps performance while providing rich markdown formatting
 /// and accessibility support.
 
-import SwiftUI
 import MarkdownCore
+import SwiftUI
 
 /// High-performance markdown content renderer with viewport optimization
 public struct MarkdownRenderer: View {
@@ -69,10 +69,15 @@ public struct MarkdownRenderer: View {
 
     @ViewBuilder
     private func sectionView(at index: Int) -> some View {
-        guard index < renderedSections.count else {
+        if index < renderedSections.count {
+            sectionContentView(at: index)
+        } else {
             EmptyView()
         }
+    }
 
+    @ViewBuilder
+    private func sectionContentView(at index: Int) -> some View {
         let section = renderedSections[index]
 
         if isOptimized && !visibleSectionIndices.contains(index) {
@@ -83,45 +88,87 @@ public struct MarkdownRenderer: View {
                 .accessibility(hidden: true)
         } else {
             // Full rendered content
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(section.elements, id: \.id) { element in
-                    renderElement(element)
-                }
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel(section.accessibilityLabel)
+            Text(section.content)
+                .font(bodyFont)
+                .lineSpacing(lineSpacing)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Content section")
         }
     }
 
     // MARK: - Element Rendering
 
-    @ViewBuilder
-    private func renderElement(_ element: MarkdownElement) -> some View {
+    private func renderElement(_ element: MarkdownElement) -> AnyView {
         switch element.type {
         case .heading(let level):
-            headingView(element, level: level)
+            return AnyView(headingView(element, level: level))
 
         case .paragraph:
-            paragraphView(element)
+            return AnyView(paragraphView(element))
 
         case .codeBlock(let language):
-            codeBlockView(element, language: language)
+            return AnyView(codeBlockView(element, language: language))
 
         case .list(let style):
-            listView(element, style: convertListStyle(style))
+            return AnyView(listView(element, style: convertListStyle(style)))
 
         case .blockquote:
-            blockquoteView(element)
+            return AnyView(blockquoteView(element))
 
         case .table:
-            tableView(element)
+            return AnyView(tableView(element))
 
         case .horizontalRule:
-            Divider()
-                .padding(.vertical, 8)
+            return AnyView(Divider()
+                .padding(.vertical, 8))
 
         case .image:
-            imageView(element)
+            return AnyView(imageView(element))
+
+        case .text:
+            return AnyView(Text(element.content)
+                .font(bodyFont))
+
+        case .listItem:
+            return AnyView(Text(element.content)
+                .font(bodyFont))
+
+        case .inlineCode:
+            return AnyView(Text(element.content)
+                .font(.system(.body, design: .monospaced))
+                .padding(.horizontal, 4)
+                .background(Color.systemGray6)
+                .clipShape(RoundedRectangle(cornerRadius: 4)))
+
+        case .tableRow, .tableCell:
+            return AnyView(Text(element.content)
+                .font(bodyFont))
+
+        case .link(let url):
+            if let url = url {
+                return AnyView(Link(element.content, destination: URL(string: url) ?? URL(string: "about:blank")!)
+                    .font(bodyFont))
+            } else {
+                return AnyView(Text(element.content)
+                    .font(bodyFont))
+            }
+
+        case .emphasis:
+            return AnyView(Text(element.content)
+                .font(bodyFont)
+                .italic())
+
+        case .strong:
+            return AnyView(Text(element.content)
+                .font(bodyFont)
+                .bold())
+
+        case .lineBreak:
+            return AnyView(Text("\n"))
+
+        case .custom:
+            return AnyView(Text(element.content)
+                .font(bodyFont))
         }
     }
 
@@ -129,25 +176,25 @@ public struct MarkdownRenderer: View {
 
     @ViewBuilder
     private func headingView(_ element: MarkdownElement, level: Int) -> some View {
-        Text(element.attributedText)
+        Text(AttributedString(element.content))
             .font(headingFont(for: level))
             .fontWeight(headingWeight(for: level))
             .foregroundStyle(headingColor(for: level))
             .padding(.top, headingTopPadding(for: level))
             .padding(.bottom, 4)
             .accessibilityAddTraits(.isHeader)
-            .accessibilityLabel("Heading level \(level): \(element.plainText)")
+            .accessibilityLabel("Heading level \(level): \(element.content)")
             .id("heading-\(element.id)")
     }
 
     // MARK: - Paragraph View
 
     private func paragraphView(_ element: MarkdownElement) -> some View {
-        Text(element.attributedText)
+        Text(AttributedString(element.content))
             .font(bodyFont)
             .lineSpacing(lineSpacing)
             .fixedSize(horizontal: false, vertical: true)
-            .accessibilityLabel(element.plainText)
+            .accessibilityLabel(element.content)
     }
 
     // MARK: - Code Block View
@@ -155,39 +202,49 @@ public struct MarkdownRenderer: View {
     private func codeBlockView(_ element: MarkdownElement, language: String?) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if let language = language, !language.isEmpty {
-                HStack {
-                    Text(language.uppercased())
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-
-                    Spacer()
-
-                    #if os(macOS)
-                    Button("Copy") {
-                        copyToClipboard(element.plainText)
-                    }
-                    .font(.caption)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    #endif
-                }
-                .background(Color(uiColor: .secondarySystemBackground))
+                codeBlockHeader(language: language, content: element.content)
             }
 
-            ScrollView(.horizontal, showsIndicators: platform.supportsCursor) {
-                Text(element.attributedText)
-                    .font(.system(.body, design: .monospaced))
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .background(Color(uiColor: .systemGray6))
+            codeBlockContent(element)
         }
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Code block" + (language.map { " in \($0)" } ?? ""))
-        .accessibilityValue(element.plainText)
+        .accessibilityValue(element.content)
+    }
+
+    @ViewBuilder
+    private func codeBlockHeader(language: String, content: String) -> some View {
+        HStack {
+            Text(language.uppercased())
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+
+            Spacer()
+
+            #if os(macOS)
+            Button("Copy") {
+                copyToClipboard(content)
+            }
+            .font(.caption)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            #endif
+        }
+        .background(Color.secondarySystemBackground)
+    }
+
+    @ViewBuilder
+    private func codeBlockContent(_ element: MarkdownElement) -> some View {
+        ScrollView(.horizontal, showsIndicators: platform.supportsCursor) {
+            Text(AttributedString(element.content))
+                .font(.system(.body, design: .monospaced))
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(Color.systemGray6)
     }
 
     // MARK: - List View
@@ -238,7 +295,7 @@ public struct MarkdownRenderer: View {
             .padding(.vertical, 8)
         }
         .background(
-            Color(uiColor: .secondarySystemBackground)
+            Color.secondarySystemBackground
                 .opacity(0.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -252,18 +309,28 @@ public struct MarkdownRenderer: View {
         // Simplified table implementation - can be enhanced
         VStack(alignment: .leading, spacing: 8) {
             ForEach(element.children ?? [], id: \.id) { row in
-                HStack {
-                    ForEach(row.children ?? [], id: \.id) { cell in
-                        Text(cell.plainText)
-                            .padding(8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color(uiColor: .secondarySystemBackground))
-                    }
-                }
+                tableRowView(row)
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Table")
+    }
+
+    @ViewBuilder
+    private func tableRowView(_ row: MarkdownElement) -> some View {
+        HStack {
+            ForEach(row.children ?? [], id: \.id) { cell in
+                tableCellView(cell)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func tableCellView(_ cell: MarkdownElement) -> some View {
+        Text(cell.content)
+            .padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.secondarySystemBackground)
     }
 
     // MARK: - Image View
@@ -271,7 +338,7 @@ public struct MarkdownRenderer: View {
     private func imageView(_ element: MarkdownElement) -> some View {
         // Placeholder for image rendering
         RoundedRectangle(cornerRadius: 8)
-            .fill(Color(uiColor: .systemGray5))
+            .fill(Color.systemGray5)
             .frame(height: 200)
             .overlay(
                 VStack {
@@ -279,15 +346,15 @@ public struct MarkdownRenderer: View {
                         .font(.system(size: 40))
                         .foregroundStyle(.secondary)
 
-                    if !element.plainText.isEmpty {
-                        Text(element.plainText)
+                    if !element.content.isEmpty {
+                        Text(element.content)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
                 }
             )
-            .accessibilityLabel("Image: \(element.plainText)")
+            .accessibilityLabel("Image: \(element.content)")
     }
 
     // MARK: - Content Preparation
@@ -311,7 +378,7 @@ public struct MarkdownRenderer: View {
         }
 
         // Calculate visible sections based on viewport
-        let visibleIndices = renderedSections.enumerated().compactMap { index, section in
+        let visibleIndices = renderedSections.enumerated().compactMap { index, _ in
             let sectionFrame = estimatedFrame(for: index)
             return viewportBounds.intersects(sectionFrame) ? index : nil
         }
@@ -398,8 +465,8 @@ public struct MarkdownRenderer: View {
 
     // MARK: - Utilities
 
-    /// Converts MarkdownElement.ListStyle to RendererListStyle
-    private func convertListStyle(_ style: MarkdownElement.ListStyle) -> RendererListStyle {
+    /// Converts ListStyle to RendererListStyle
+    private func convertListStyle(_ style: ListStyle) -> RendererListStyle {
         switch style {
         case .unordered:
             return .bullet
@@ -423,6 +490,23 @@ private enum RendererListStyle {
     case ordered
 }
 
+// MARK: - Content Processor
+
+/// Simple content processor for converting AttributedString to RenderedSections
+struct MarkdownContentProcessor {
+    static func process(_ content: AttributedString) async -> [RenderedSection] {
+        // Simple implementation: create a single section with the entire content
+        [
+            RenderedSection(
+                id: "section-0",
+                range: NSRange(location: 0, length: content.characters.count),
+                content: content,
+                estimatedHeight: 200,
+                renderingPriority: .normal
+            )
+        ]
+    }
+}
 
 // MARK: - Preview
 

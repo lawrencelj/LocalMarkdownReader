@@ -20,7 +20,7 @@ public class DocumentService: ObservableObject {
 
     /// Load and parse a document from reference
     public func loadDocument(_ reference: DocumentReference) async throws -> DocumentModel {
-        return try await performanceMonitor.trackOperation("load_document") {
+        try await performanceMonitor.trackOperation("load_document") {
             // Read file content
             let content = try await loadFileContent(from: reference)
 
@@ -45,19 +45,19 @@ public class DocumentService: ObservableObject {
     /// Render document to AttributedString
     public func renderToAttributedString(_ document: DocumentModel) -> NSAttributedString {
         // Convert AttributedString to NSAttributedString
-        return NSAttributedString(document.attributedContent)
+        NSAttributedString(document.attributedContent)
     }
 
     /// Extract outline from document
     public func extractOutline(_ document: DocumentModel) -> [HeadingItem] {
-        return document.outline
+        document.outline
     }
 
     // MARK: - Additional Service Methods
 
     /// Refresh document from its source
     public func refreshDocument(_ document: DocumentModel) async throws -> DocumentModel {
-        return try await loadDocument(document.reference)
+        try await loadDocument(document.reference)
     }
 
     /// Validate document can be parsed
@@ -74,7 +74,7 @@ public class DocumentService: ObservableObject {
 
     /// Get document statistics
     public func getDocumentStatistics(_ document: DocumentModel) -> DocumentStatistics {
-        return DocumentStatistics(
+        DocumentStatistics(
             wordCount: document.metadata.wordCount,
             characterCount: document.metadata.characterCount,
             lineCount: document.metadata.lineCount,
@@ -196,6 +196,6 @@ public struct DocumentStatistics: Sendable {
 extension DocumentService {
     /// Create a preview service for development
     public static var preview: DocumentService {
-        return DocumentService(configuration: .default)
+        DocumentService(configuration: .default)
     }
 }

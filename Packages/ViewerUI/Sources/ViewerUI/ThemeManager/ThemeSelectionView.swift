@@ -59,15 +59,17 @@ public struct ThemeSelectionView: View {
                 .padding(.vertical, 16)
             }
             .navigationTitle("Appearance")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.large)
+            #endif
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: toolbarLeadingPlacement) {
                     Button("Cancel") {
                         dismiss()
                     }
                 }
 
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: toolbarTrailingPlacement) {
                     Button("Done") {
                         applyChanges()
                         dismiss()
@@ -93,11 +95,10 @@ public struct ThemeSelectionView: View {
                 ForEach(Theme.allCases, id: \.self) { theme in
                     ThemeOptionView(
                         theme: theme,
-                        isSelected: selectedTheme == theme,
-                        onSelect: {
+                        isSelected: selectedTheme == theme
+                    )                        {
                             selectTheme(theme)
                         }
-                    )
                 }
             }
 
@@ -360,6 +361,22 @@ public struct ThemeSelectionView: View {
 
     // MARK: - Computed Properties
 
+    private var toolbarLeadingPlacement: ToolbarItemPlacement {
+        #if os(iOS)
+        return .navigationBarLeading
+        #else
+        return .cancellationAction
+        #endif
+    }
+
+    private var toolbarTrailingPlacement: ToolbarItemPlacement {
+        #if os(iOS)
+        return .navigationBarTrailing
+        #else
+        return .confirmationAction
+        #endif
+    }
+
     private var gridColumns: [GridItem] {
         [
             GridItem(.flexible(), spacing: 12),
@@ -526,7 +543,10 @@ private extension Theme {
 
 // MARK: - Preview
 
-#Preview("Theme Selection") {
-    ThemeSelectionView()
-        .environment(\.themeManager, ThemeManager())
+struct ThemeSelectionView_Previews: PreviewProvider {
+    static var previews: some View {
+        ThemeSelectionView()
+            .environment(\.themeManager, ThemeManager())
+            .previewDisplayName("Theme Selection")
+    }
 }

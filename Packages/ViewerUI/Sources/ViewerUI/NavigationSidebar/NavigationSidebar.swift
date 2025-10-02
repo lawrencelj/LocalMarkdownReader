@@ -4,9 +4,9 @@
 /// with collapsible sections, jump-to-content functionality, and full
 /// accessibility support including VoiceOver rotor integration.
 
-import SwiftUI
 import MarkdownCore
 import Search
+import SwiftUI
 
 /// Main navigation sidebar component with outline generation
 public struct NavigationSidebar: View {
@@ -26,6 +26,10 @@ public struct NavigationSidebar: View {
     // MARK: - Accessibility
 
     @AccessibilityFocusState private var focusedHeading: String?
+
+    // MARK: - Initialization
+
+    public init() {}
 
     // MARK: - View Body
 
@@ -103,7 +107,7 @@ public struct NavigationSidebar: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color.systemBackground)
     }
 
     // MARK: - Outline Content
@@ -350,21 +354,25 @@ private struct SearchBar: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color(uiColor: .systemGray6))
+        .background(Color.systemGray6)
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 
 // MARK: - Preview
 
-#Preview("Navigation Sidebar") {
-    NavigationSidebar()
-        .frame(width: 280)
-        .environment(AppStateCoordinator.preview)
-}
+struct NavigationSidebar_Previews: PreviewProvider {
+    static var previews: some View {
+        Group {
+            NavigationSidebar()
+                .frame(width: 280)
+                .environment(AppStateCoordinator.preview)
+                .previewDisplayName("Navigation Sidebar")
 
-#Preview("Navigation Sidebar - Empty") {
-    NavigationSidebar()
-        .frame(width: 280)
-        .environment(AppStateCoordinator.previewEmpty)
+            NavigationSidebar()
+                .frame(width: 280)
+                .environment(AppStateCoordinator.previewEmpty)
+                .previewDisplayName("Navigation Sidebar - Empty")
+        }
+    }
 }

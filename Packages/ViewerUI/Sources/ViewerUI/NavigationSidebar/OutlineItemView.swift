@@ -3,8 +3,8 @@
 /// Displays individual heading items in the navigation sidebar with
 /// proper hierarchy indication, expansion controls, and accessibility support.
 
-import SwiftUI
 import Search
+import SwiftUI
 
 /// Individual outline item view with hierarchy and interaction support
 struct OutlineItemView: View {
@@ -280,70 +280,20 @@ struct OutlineItemView: View {
             value += "\(item.wordCount) words"
         }
 
-        return value.isEmpty ? nil : value
+        return value.isEmpty ? "" : value
     }
 
     private var accessibilityTraits: AccessibilityTraits {
         var traits: AccessibilityTraits = [.isButton]
 
         if isSelected {
-            traits.insert(.isSelected)
+            _ = traits.insert(.isSelected)
         }
 
         if !item.children.isEmpty {
-            traits.insert(.updatesFrequently)
+            _ = traits.insert(.updatesFrequently)
         }
 
         return traits
     }
-}
-
-// MARK: - Preview
-
-#Preview("Outline Item - Level 1") {
-    VStack {
-        OutlineItemView(
-            item: OutlineItem.previewLevel1,
-            isExpanded: false,
-            isSelected: false,
-            onToggleExpansion: {},
-            onSelect: {}
-        )
-
-        OutlineItemView(
-            item: OutlineItem.previewLevel1,
-            isExpanded: true,
-            isSelected: false,
-            onToggleExpansion: {},
-            onSelect: {}
-        )
-
-        OutlineItemView(
-            item: OutlineItem.previewLevel1,
-            isExpanded: false,
-            isSelected: true,
-            onToggleExpansion: {},
-            onSelect: {}
-        )
-    }
-    .padding()
-    .background(Color.systemGroupedBackground)
-}
-
-#Preview("Outline Item - All Levels") {
-    ScrollView {
-        VStack(spacing: 4) {
-            ForEach(1...6, id: \.self) { level in
-                OutlineItemView(
-                    item: OutlineItem.preview(level: level),
-                    isExpanded: false,
-                    isSelected: false,
-                    onToggleExpansion: {},
-                    onSelect: {}
-                )
-            }
-        }
-        .padding()
-    }
-    .background(Color.systemGroupedBackground)
 }

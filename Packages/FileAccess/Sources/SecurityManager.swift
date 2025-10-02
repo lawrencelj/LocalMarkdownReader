@@ -224,7 +224,7 @@ public actor SecurityManager {
     /// Stop accessing security-scoped resource with comprehensive cleanup
     public func stopAccessing(_ url: URL) {
         let currentInfo = withAccessTracker { tracker in
-            return tracker[url]
+            tracker[url]
         }
 
         guard let currentInfo = currentInfo else {
@@ -259,7 +259,7 @@ public actor SecurityManager {
         let expirationInterval: TimeInterval = 60 * 60 // 1 hour
 
         withAccessTracker { tracker in
-            let expiredURLs = tracker.compactMap { (url, accessInfo) -> URL? in
+            let expiredURLs = tracker.compactMap { url, accessInfo -> URL? in
                 let isExpired = now.timeIntervalSince(accessInfo.lastAccessed) > expirationInterval
                 if isExpired && accessInfo.isActive {
                     // Stop accessing expired resources
@@ -277,8 +277,8 @@ public actor SecurityManager {
 
     /// Get access information for URL
     public func getAccessInfo(for url: URL) -> AccessInfo? {
-        return withAccessTracker { tracker in
-            return tracker[url]
+        withAccessTracker { tracker in
+            tracker[url]
         }
     }
 
@@ -390,7 +390,7 @@ public actor SecurityManager {
     /// Thread-safe access tracker operations
     private func withAccessTracker<T>(_ operation: (inout [URL: AccessInfo]) -> T) -> T {
         // This provides basic synchronization within the actor context
-        return operation(&accessTracker)
+        operation(&accessTracker)
     }
 }
 
@@ -416,8 +416,8 @@ public struct AccessInfo: Sendable {
     }
 
     public func withActiveUpdate<T: Sendable>(_ block: @Sendable (Bool) -> T) -> T {
-        return _isActive.withLock { isActive in
-            return block(isActive)
+        _isActive.withLock { isActive in
+            block(isActive)
         }
     }
 }
@@ -489,18 +489,17 @@ public enum SecurityError: Error, LocalizedError, Sendable {
     }
 }
 
-
 // MARK: - Security Manager Extensions
 
 extension SecurityManager {
     /// Batch validate multiple bookmarks
     public func validateBookmarks(_ bookmarks: [Data]) -> [Bool] {
-        return bookmarks.map { validateBookmark($0) }
+        bookmarks.map { validateBookmark($0) }
     }
 
     /// Create bookmarks for multiple URLs
     public func createBookmarks(for urls: [URL]) -> [Result<Data, Error>] {
-        return urls.map { url in
+        urls.map { url in
             do {
                 let bookmark = try createBookmark(for: url)
                 return .success(bookmark)
@@ -512,7 +511,7 @@ extension SecurityManager {
 
     /// Get statistics about current access tracking
     public func getAccessStatistics() -> AccessStatistics {
-        return withAccessTracker { tracker in
+        withAccessTracker { tracker in
             let activeCount = tracker.values.filter { $0.isActive }.count
             let totalCount = tracker.count
 

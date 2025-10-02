@@ -29,14 +29,14 @@ public class SearchService: ObservableObject {
 
     /// Search content with query
     public func searchContent(_ query: String) async -> [SearchResult] {
-        return await performanceMonitor.trackNonThrowingOperation("search_content") {
+        await performanceMonitor.trackNonThrowingOperation("search_content") {
             await searchEngine.search(query: query)
         }
     }
 
     /// Highlight search matches in content
     @MainActor public func highlightMatches(_ content: NSAttributedString, query: String) async -> NSAttributedString {
-        return await performanceMonitor.trackNonThrowingOperation("highlight_matches") {
+        await performanceMonitor.trackNonThrowingOperation("highlight_matches") {
             let highlighter = ContentHighlighter()
             return highlighter.highlightMatches(in: content, query: query)
         }
@@ -50,7 +50,7 @@ public class SearchService: ObservableObject {
         options: SearchOptions = SearchOptions(),
         in document: DocumentModel? = nil
     ) async throws -> [SearchResult] {
-        return try await performanceMonitor.trackOperation("advanced_search") {
+        try await performanceMonitor.trackOperation("advanced_search") {
             try await searchEngine.advancedSearch(
                 query: query,
                 options: options,
@@ -61,7 +61,7 @@ public class SearchService: ObservableObject {
 
     /// Generate document outline
     public func generateOutline(for document: DocumentModel) async throws -> [OutlineItem] {
-        return try await performanceMonitor.trackOperation("generate_outline") {
+        try await performanceMonitor.trackOperation("generate_outline") {
             try await searchEngine.generateOutline(from: document)
         }
     }
@@ -73,7 +73,7 @@ public class SearchService: ObservableObject {
 
     /// Get search statistics
     public func getSearchStatistics() async -> SearchStatistics {
-        return await searchEngine.getStatistics()
+        await searchEngine.getStatistics()
     }
 
     /// Update search index for document changes
@@ -92,7 +92,7 @@ public class SearchService: ObservableObject {
 // MARK: - Search Options
 
 /// Search configuration options
-public struct SearchOptions: Sendable {
+public struct SearchOptions: Sendable, Equatable {
     public let caseSensitive: Bool
     public let wholeWords: Bool
     public let useRegex: Bool
@@ -205,7 +205,7 @@ public struct OutlineItem: Sendable, Identifiable, Hashable {
     /// Word count for this section (computed property)
     public var wordCount: Int {
         // Simplified word count calculation
-        return title.split(separator: " ").count * 10 // Placeholder
+        title.split(separator: " ").count * 10 // Placeholder
     }
 
     public init(
@@ -235,7 +235,7 @@ public struct OutlineItem: Sendable, Identifiable, Hashable {
 
     /// Preview outline item for level 1
     public static var previewLevel1: OutlineItem {
-        return OutlineItem(
+        OutlineItem(
             level: 1,
             title: "Introduction",
             range: NSRange(location: 0, length: 12),
@@ -297,14 +297,14 @@ public struct SearchStatistics: Sendable {
 extension SearchService {
     /// Create a preview service for development
     public static var preview: SearchService {
-        return SearchService()
+        SearchService()
     }
 }
 
 extension SearchResult {
     /// Create preview search results
     public static var previewResults: [SearchResult] {
-        return [
+        [
             SearchResult(
                 documentId: UUID(),
                 text: "Example search result",
