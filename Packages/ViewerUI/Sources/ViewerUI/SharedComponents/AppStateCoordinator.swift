@@ -587,7 +587,15 @@ public class AppStateCoordinator {
         applyForegroundColor(&highlighted, range: errorRange, color: Color.primary)
 
         documentState.documentContent = highlighted
-        let targetPosition = CGFloat(max(error.line - 1, 0)) * 20.0
+
+        // Calculate scroll position to center the error line in viewport
+        // Assuming viewport height is approximately 600pt and line height is 20pt
+        let lineHeight: CGFloat = 20.0
+        let estimatedViewportHeight: CGFloat = 600.0
+        let errorLinePosition = CGFloat(max(error.line - 1, 0)) * lineHeight
+
+        // Scroll to position that places error line in middle of viewport
+        let targetPosition = max(0, errorLinePosition - (estimatedViewportHeight / 2))
         documentState.scrollPosition = targetPosition
     }
 

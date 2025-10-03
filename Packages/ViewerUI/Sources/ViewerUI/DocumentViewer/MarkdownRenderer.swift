@@ -72,12 +72,21 @@ public struct MarkdownRenderer: View {
 
     @ViewBuilder
     private func linePaneView(lineNumber: Int, content: String, isEvenRow: Bool) -> some View {
+        // Check if this line has a syntax error
+        let lineError = syntaxErrors.first { $0.line == lineNumber }
+        let hasError = lineError != nil
+        
+        // Determine background color based on error state or alternating pattern
+        let backgroundColor: Color = hasError ? 
+            Color.red.opacity(0.25) : 
+            Color.primary.opacity(isEvenRow ? 0.03 : 0.044)
+        
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             // Line number pane (left side, 40pt width)
             if showLineNumbers {
                 Text("\(lineNumber)")
                     .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(hasError ? .red : .secondary)
                     .frame(width: 40, alignment: .trailing)
                     .padding(.trailing, 8)
             }
@@ -89,11 +98,15 @@ public struct MarkdownRenderer: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 4)
                 .padding(.horizontal, 8)
+            
+            // Show inline error indicator if error exists on this line
+            if let error = lineError {
+                InlineErrorIndicator(error: error)
+                    .padding(.trailing, 8)
+            }
         }
-        .background(
-            // Alternating shade with 5-degree difference (0.014 opacity)
-            Color.primary.opacity(isEvenRow ? 0.03 : 0.044)
-        )
+        .background(backgroundColor)
+        .id("line-\(lineNumber)") // For scroll targeting
     }
 
     // MARK: - Line Extraction
