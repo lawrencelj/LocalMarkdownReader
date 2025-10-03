@@ -140,8 +140,9 @@ public actor ValidationEngine {
                 throw ValidationError.malformedTable(line: index + 1)
             }
 
-            // Check for malformed links
-            if line.contains("[") && line.contains("]") && !hasValidLinkSyntax(line) {
+            // Check for malformed links - only validate if it looks like a link attempt
+            // Pattern: text followed by ] and then (
+            if line.contains("](") && !hasValidLinkSyntax(line) {
                 throw ValidationError.malformedLink(line: index + 1)
             }
         }
@@ -290,6 +291,175 @@ public actor ValidationEngine {
         let linkPattern = #"\[([^\]]*)\]\(([^)]+)\)"#
         return line.range(of: linkPattern, options: .regularExpression) != nil
     }
+
+    // MARK: - Error-Tolerant Validation
+
+    /// Validate content and collect errors instead of throwing
+    public func validateContentWithErrorCollection(_ content: String) async -> ValidationResult {
+        var errors: [SyntaxError] = []
+
+        // Size validation
+        do {
+            try await validateSize(content)
+        } catch {
+            errors.append(SyntaxError(
+                line: 0,
+                column: 0,
+                type: .fileTooLarge,
+                message: error.localizedDescription,
+                severity: .error
+            ))
+            return ValidationResult(isValid: false, errors: errors, sanitizedContent: content)
+        }
+
+        // Structure validation - collect errors
+        let structureErrors = await validateStructureWithErrors(content)
+        errors.append(contentsOf: structureErrors)
+
+        // Security validation - collect errors
+        if configuration.enableScriptTagBlocking || configuration.enableLinkValidation {
+            let securityErrors = await validateSecurityWithErrors(content)
+            errors.append(contentsOf: securityErrors)
+        }
+
+        return ValidationResult(
+            isValid: errors.isEmpty,
+            errors: errors,
+            sanitizedContent: content
+        )
+    }
+
+    private func validateStructureWithErrors(_ content: String) async -> [SyntaxError] {
+        var errors: [SyntaxError] = []
+
+        // Validate nesting
+        let lines = content.components(separatedBy: .newlines)
+        var currentNesting = 0
+
+        for (index, line) in lines.enumerated() {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // Check list nesting
+            if trimmed.hasPrefix("-") || trimmed.hasPrefix("*") || trimmed.hasPrefix("+") {
+                let leadingSpaces = line.prefix { $0 == " " }.count
+                currentNesting = leadingSpaces / 2
+
+                if currentNesting > configuration.maxNestingLevel {
+                    errors.append(SyntaxError(
+                        line: index + 1,
+                        column: 0,
+                        type: .excessiveNesting,
+                        message: "Excessive nesting level \(currentNesting) (maximum: \(configuration.maxNestingLevel))",
+                        severity: .warning
+                    ))
+                }
+            }
+
+            // Check malformed tables
+            if line.contains("|") && !isValidTableRow(line) {
+                errors.append(SyntaxError(
+                    line: index + 1,
+                    column: 0,
+                    type: .malformedTable,
+                    message: "Malformed table syntax",
+                    severity: .warning
+                ))
+            }
+
+            // Check malformed links
+            if line.contains("](") && !hasValidLinkSyntax(line) {
+                errors.append(SyntaxError(
+                    line: index + 1,
+                    column: 0,
+                    type: .malformedLink,
+                    message: "Malformed link syntax",
+                    severity: .warning
+                ))
+            }
+        }
+
+        return errors
+    }
+
+    private func validateSecurityWithErrors(_ content: String) async -> [SyntaxError] {
+        var errors: [SyntaxError] = []
+
+        // Check for dangerous patterns
+        let dangerousPatterns = [
+            "javascript:",
+            "data:text/html",
+            "vbscript:",
+            "file:",
+            "about:"
+        ]
+
+        let lines = content.components(separatedBy: .newlines)
+        for (index, line) in lines.enumerated() {
+            for pattern in dangerousPatterns {
+                if line.lowercased().contains(pattern) {
+                    errors.append(SyntaxError(
+                        line: index + 1,
+                        column: 0,
+                        type: .dangerousContent,
+                        message: "Dangerous content detected: \(pattern)",
+                        severity: .error
+                    ))
+                }
+            }
+        }
+
+        return errors
+    }
+}
+
+/// Validation result with collected errors
+public struct ValidationResult: Sendable {
+    public let isValid: Bool
+    public let errors: [SyntaxError]
+    public let sanitizedContent: String
+
+    public init(isValid: Bool, errors: [SyntaxError], sanitizedContent: String) {
+        self.isValid = isValid
+        self.errors = errors
+        self.sanitizedContent = sanitizedContent
+    }
+}
+
+/// Syntax error information
+public struct SyntaxError: Sendable, Identifiable, Codable, Hashable {
+    public let id: UUID
+    public let line: Int
+    public let column: Int
+    public let type: SyntaxErrorType
+    public let message: String
+    public let severity: ErrorSeverity
+
+    public init(line: Int, column: Int, type: SyntaxErrorType, message: String, severity: ErrorSeverity) {
+        self.id = UUID()
+        self.line = line
+        self.column = column
+        self.type = type
+        self.message = message
+        self.severity = severity
+    }
+}
+
+/// Types of syntax errors
+public enum SyntaxErrorType: String, Sendable, Codable, Hashable {
+    case excessiveNesting
+    case malformedTable
+    case malformedLink
+    case dangerousContent
+    case fileTooLarge
+    case blockedHTML
+    case invalidURL
+}
+
+/// Error severity levels
+public enum ErrorSeverity: String, Sendable, Codable, Hashable {
+    case error      // Blocks rendering
+    case warning    // Shows warning but renders
+    case info       // Informational only
 }
 
 /// Validation errors

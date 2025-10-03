@@ -1,0 +1,45 @@
+MarkdownReader macOS Application
+================================
+
+Build Date: 2025-10-02
+Build Type: Release
+
+Application Details:
+-------------------
+Name: MarkdownReader.app
+Size: 6.8 MB
+Architecture: ARM64 (Apple Silicon)
+Executable Type: Mach-O 64-bit executable
+Min macOS Version: 14.0 (Sonoma)
+
+Bundle Structure:
+----------------
+MarkdownReader.app/
+├── Contents/
+    ├── Info.plist (Bundle configuration)
+    ├── MacOS/
+    │   └── MarkdownReader (Main executable - 6.7MB)
+    └── Resources/ (Reserved for future assets)
+
+Bundle Identifier: com.markdownreader.app
+Bundle Version: 1.0
+
+Supported File Types:
+--------------------
+- .md (Markdown)
+- .markdown (Markdown)
+
+Build Status: ✅ SUCCESS
+Launch Test: ✅ PASSED
+
+Installation:
+------------
+1. Copy MarkdownReader.app to /Applications/
+2. Right-click → Open (first launch only)
+3. Double-click to run (subsequent launches)
+
+Notes:
+------
+- App is unsigned (requires security override on first launch)
+- Built with Swift 6 in release mode
+- All compiler warnings resolved (non-critical Sendable warnings remain)

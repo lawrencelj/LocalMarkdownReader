@@ -12,6 +12,7 @@ public struct MarkdownRenderer: View {
     // MARK: - Properties
 
     let content: AttributedString
+    let syntaxErrors: [SyntaxError]
     @Binding var viewportBounds: CGRect
     @Binding var isOptimized: Bool
 
@@ -87,12 +88,30 @@ public struct MarkdownRenderer: View {
                 .frame(height: section.estimatedHeight)
                 .accessibility(hidden: true)
         } else {
-            // Full rendered content
-            Text(section.content)
-                .font(bodyFont)
-                .lineSpacing(lineSpacing)
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel("Content section")
+            // Full rendered content with inline error indicators
+            VStack(alignment: .leading, spacing: 4) {
+                // Show any errors for this section's lines
+                if let lineErrors = errorsForSection(index) {
+                    HStack(spacing: 8) {
+                        ForEach(lineErrors) { error in
+                            InlineErrorIndicator(error: error)
+                            Text(error.message)
+                                .font(.caption)
+                                .foregroundColor(errorColor(for: error))
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(errorBackgroundColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+
+                Text(section.content)
+                    .font(bodyFont)
+                    .lineSpacing(lineSpacing)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel("Content section")
+            }
         }
     }
 
@@ -481,6 +500,38 @@ public struct MarkdownRenderer: View {
         NSPasteboard.general.setString(text, forType: .string)
     }
     #endif
+
+    // MARK: - Error Handling
+
+    /// Get errors for a specific section index
+    private func errorsForSection(_ index: Int) -> [SyntaxError]? {
+        guard index < renderedSections.count else { return nil }
+
+        let section = renderedSections[index]
+
+        let errors = syntaxErrors.filter { error in
+            section.lineRange.contains(error.line)
+        }
+
+        return errors.isEmpty ? nil : errors
+    }
+
+    /// Get color for error severity
+    private func errorColor(for error: SyntaxError) -> Color {
+        switch error.severity {
+        case .error:
+            return .red
+        case .warning:
+            return .orange
+        case .info:
+            return .blue
+        }
+    }
+
+    /// Background color for error indicators
+    private var errorBackgroundColor: Color {
+        Color.red.opacity(0.1)
+    }
 }
 
 // MARK: - Supporting Types
@@ -495,16 +546,57 @@ private enum RendererListStyle {
 /// Simple content processor for converting AttributedString to RenderedSections
 struct MarkdownContentProcessor {
     static func process(_ content: AttributedString) async -> [RenderedSection] {
-        // Simple implementation: create a single section with the entire content
-        [
-            RenderedSection(
-                id: "section-0",
-                range: NSRange(location: 0, length: content.characters.count),
-                content: content,
-                estimatedHeight: 200,
-                renderingPriority: .normal
+        let maxLinesPerSection = 25
+        var sections: [RenderedSection] = []
+        var lineEndIndices: [AttributedString.Index] = []
+        lineEndIndices.reserveCapacity(content.characters.count / 40 + 1)
+
+        var index = content.startIndex
+        while index < content.endIndex {
+            if content.characters[index] == "\n" {
+                lineEndIndices.append(content.index(afterCharacter: index))
+            }
+            index = content.index(afterCharacter: index)
+        }
+        // Ensure the final boundary is included
+        lineEndIndices.append(content.endIndex)
+
+        var sectionStart = content.startIndex
+        var boundaryIndex = 0
+        var sectionIndex = 0
+        var currentLine = 1
+
+        while boundaryIndex < lineEndIndices.count {
+            let nextBoundaryIndex = min(boundaryIndex + maxLinesPerSection, lineEndIndices.count)
+            let sectionEnd = lineEndIndices[nextBoundaryIndex - 1]
+
+            let range = sectionStart..<sectionEnd
+            let attributedSlice = AttributedString(content[range])
+            let nsRange = NSRange(range, in: content)
+
+            let lineCount = max(nextBoundaryIndex - boundaryIndex, 1)
+            let lineRange = currentLine..<(currentLine + lineCount)
+
+            sections.append(
+                RenderedSection(
+                    id: "section-\(sectionIndex)",
+                    range: nsRange,
+                    content: attributedSlice,
+                    estimatedHeight: CGFloat(lineCount * 18),
+                    renderingPriority: sectionIndex == 0 ? .high : .normal,
+                    lineRange: lineRange
+                )
             )
-        ]
+
+            currentLine += lineCount
+            sectionIndex += 1
+            boundaryIndex = nextBoundaryIndex
+            sectionStart = sectionEnd
+        }
+
+        return sections.isEmpty
+            ? [RenderedSection(id: "section-0", range: NSRange(location: 0, length: content.characters.count), content: content, estimatedHeight: 200, renderingPriority: .normal, lineRange: 0..<1)]
+            : sections
     }
 }
 
@@ -516,6 +608,7 @@ struct MarkdownRenderer_Previews: PreviewProvider {
         ScrollView {
             MarkdownRenderer(
                 content: AttributedString("# Sample Content\n\nThis is a paragraph."),
+                syntaxErrors: [],
                 viewportBounds: .constant(.zero),
                 isOptimized: .constant(false)
             )

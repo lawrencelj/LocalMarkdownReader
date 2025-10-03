@@ -16,13 +16,15 @@ public struct DocumentModel: Sendable, Codable, Identifiable, Hashable {
     public let outline: [HeadingItem]
     public let parseDate: Date
     public let formatVersion: String
+    public let syntaxErrors: [SyntaxError]  // Syntax errors found during parsing
 
     public init(
         reference: DocumentReference,
         content: String,
         attributedContent: AttributedString,
         metadata: DocumentMetadata,
-        outline: [HeadingItem]
+        outline: [HeadingItem],
+        syntaxErrors: [SyntaxError] = []
     ) {
         self.id = UUID()
         self.reference = reference
@@ -32,12 +34,13 @@ public struct DocumentModel: Sendable, Codable, Identifiable, Hashable {
         self.outline = outline
         self.parseDate = Date()
         self.formatVersion = "1.0.0"
+        self.syntaxErrors = syntaxErrors
     }
 
     // MARK: - Codable Implementation
 
     private enum CodingKeys: String, CodingKey {
-        case id, reference, content, metadata, outline, parseDate, formatVersion
+        case id, reference, content, metadata, outline, parseDate, formatVersion, syntaxErrors
     }
 
     public init(from decoder: Decoder) throws {
@@ -50,6 +53,7 @@ public struct DocumentModel: Sendable, Codable, Identifiable, Hashable {
         outline = try container.decode([HeadingItem].self, forKey: .outline)
         parseDate = try container.decode(Date.self, forKey: .parseDate)
         formatVersion = try container.decode(String.self, forKey: .formatVersion)
+        syntaxErrors = try container.decodeIfPresent([SyntaxError].self, forKey: .syntaxErrors) ?? []
 
         // Re-parse attributed content (not serializable) - use fallback for sync context
         self.attributedContent = AttributedString(content)
@@ -65,6 +69,7 @@ public struct DocumentModel: Sendable, Codable, Identifiable, Hashable {
         try container.encode(outline, forKey: .outline)
         try container.encode(parseDate, forKey: .parseDate)
         try container.encode(formatVersion, forKey: .formatVersion)
+        try container.encode(syntaxErrors, forKey: .syntaxErrors)
     }
 
     // MARK: - Hashable Implementation
@@ -114,7 +119,7 @@ public struct DocumentReference: Sendable, Codable, Hashable {
                 throw DocumentError.securityScopeAccessFailed
             }
             bookmark = try url.bookmarkData(
-                options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess],
+                options: [.withSecurityScope],
                 includingResourceValuesForKeys: nil,
                 relativeTo: nil
             )

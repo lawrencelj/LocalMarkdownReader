@@ -273,12 +273,17 @@ private actor SearchIndex {
         }
 
         // Convert to search results with scoring
-        let results = await convertToSearchResults(
+        var results = await convertToSearchResults(
             matchingTerms: matchingTerms,
             query: query,
             options: options,
             documents: documents
         )
+
+        // Filter by matchType if searching headings only
+        if options.searchHeadingsOnly {
+            results = results.filter { $0.matchType == .heading }
+        }
 
         // Sort by relevance and limit results
         let sortedResults = results
@@ -315,16 +320,18 @@ private actor SearchIndex {
     private func tokenizeContent(_ content: String) -> [Token] {
         var tokens: [Token] = []
         let lines = content.components(separatedBy: .newlines)
+        var documentPosition = 0
 
         for (lineIndex, line) in lines.enumerated() {
-            let lineTokens = tokenizeLine(line, lineNumber: lineIndex + 1)
+            let lineTokens = tokenizeLine(line, lineNumber: lineIndex + 1, documentPosition: documentPosition)
             tokens.append(contentsOf: lineTokens)
+            documentPosition += line.count + 1  // +1 for newline character
         }
 
         return tokens
     }
 
-    private func tokenizeLine(_ line: String, lineNumber: Int) -> [Token] {
+    private func tokenizeLine(_ line: String, lineNumber: Int, documentPosition: Int) -> [Token] {
         var tokens: [Token] = []
 
         // Determine match type based on line content
@@ -347,12 +354,13 @@ private actor SearchIndex {
 
         for (wordIndex, word) in words.enumerated() {
             let term = word.lowercased()
-            let position = line.range(of: word)?.lowerBound.utf16Offset(in: line) ?? 0
-            let contextRange = calculateContextRange(line: line, wordPosition: position, lineNumber: lineNumber)
+            let linePosition = line.range(of: word)?.lowerBound.utf16Offset(in: line) ?? 0
+            let globalPosition = documentPosition + linePosition
+            let contextRange = calculateContextRange(line: line, wordPosition: linePosition, lineNumber: lineNumber)
 
             let token = Token(
                 term: term,
-                position: position,
+                position: globalPosition,  // Use global document position
                 lineNumber: lineNumber,
                 columnNumber: wordIndex + 1,
                 contextRange: contextRange,  // Memory efficient range
@@ -438,11 +446,13 @@ private actor SearchIndex {
                 document: document
             )
 
-            // Extract context on-demand from document content
-            let context = extractContextFromDocument(
+            // Extract context on-demand from document content (if option enabled)
+            let context = options.includeContext ? extractContextFromDocument(
                 document: document,
-                contextRange: term.contextRange
-            )
+                termPosition: term.position,
+                termLength: term.term.count,
+                contextLength: options.contextLength
+            ) : ""
 
             // Get heading context
             let headingContext = findHeadingContext(
@@ -468,21 +478,26 @@ private actor SearchIndex {
         return results
     }
 
-    /// Extract context from document using contextRange - memory efficient
+    /// Extract context from document around the term position - memory efficient
     private func extractContextFromDocument(
         document: DocumentModel,
-        contextRange: NSRange
+        termPosition: Int,
+        termLength: Int,
+        contextLength: Int
     ) -> String {
         let content = document.content
-        let safeStart = max(0, contextRange.location)
-        let safeEnd = min(content.count, contextRange.location + contextRange.length)
 
-        guard safeStart < content.count, safeEnd > safeStart else {
+        // Calculate context window around the term
+        let halfContext = contextLength / 2
+        let contextStart = max(0, termPosition - halfContext)
+        let contextEnd = min(content.count, termPosition + termLength + halfContext)
+
+        guard contextStart < content.count, contextEnd > contextStart else {
             return ""
         }
 
-        let startIndex = content.index(content.startIndex, offsetBy: safeStart)
-        let endIndex = content.index(content.startIndex, offsetBy: safeEnd)
+        let startIndex = content.index(content.startIndex, offsetBy: contextStart)
+        let endIndex = content.index(content.startIndex, offsetBy: contextEnd)
 
         return String(content[startIndex..<endIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -506,7 +521,7 @@ private actor SearchIndex {
         // Bonus for match type
         switch term.matchType {
         case .heading:
-            score += 0.5
+            score += 1.0  // Headings should be strongly preferred
         case .emphasis:
             score += 0.2
         case .link:
@@ -519,7 +534,7 @@ private actor SearchIndex {
         let positionRatio = Double(term.position) / Double(document.content.count)
         score += (1.0 - positionRatio) * 0.2
 
-        return min(score, 1.0)
+        return score
     }
 
     private func findHeadingContext(for term: SearchTerm, in document: DocumentModel) -> String? {

@@ -191,11 +191,16 @@ struct SearchResultView: View {
             // Convert String.Index to AttributedString.Index
             if let attributedRange = attributedString.range(of: String(fullText[range])) {
                 // Apply highlighting
-                attributedString[attributedRange].backgroundColor = highlightColor
-                attributedString[attributedRange].foregroundColor = highlightTextColor
+                var highlightAttributes = AttributeContainer()
+                highlightAttributes.backgroundColor = highlightColor
+                highlightAttributes.foregroundColor = highlightTextColor
+                attributedString[attributedRange].mergeAttributes(highlightAttributes)
 
                 // Bold the matched text
-                attributedString[attributedRange].font = .body.bold()
+                let existingFont = attributedString[attributedRange].font ?? Font.body
+                var fontAttributes = AttributeContainer()
+                fontAttributes.font = existingFont.bold()
+                attributedString[attributedRange].mergeAttributes(fontAttributes)
             }
 
             searchStartIndex = range.upperBound

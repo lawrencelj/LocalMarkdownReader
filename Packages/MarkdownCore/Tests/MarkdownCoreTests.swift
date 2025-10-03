@@ -43,7 +43,7 @@ final class MarkdownCoreTests: XCTestCase {
         let document = try await documentService.parseMarkdown(content)
 
         XCTAssertEqual(document.content, content)
-        XCTAssertEqual(document.metadata.wordCount, 16)
+        XCTAssertEqual(document.metadata.wordCount, 15) // Excludes code block content
         XCTAssertTrue(document.metadata.hasCodeBlocks)
         XCTAssertFalse(document.metadata.hasImages)
         XCTAssertFalse(document.metadata.hasTables)
@@ -149,14 +149,27 @@ final class MarkdownCoreTests: XCTestCase {
 
     // MARK: - Performance Tests
 
-    func testParsingPerformance() {
+    func testParsingPerformance() async throws {
         let content = String(repeating: "# Heading\nSome content with **bold** and *italic* text.\n", count: 1000)
 
-        measure {
-            Task {
-                _ = try! await documentService.parseMarkdown(content)
-            }
+        // Warm up
+        _ = try await documentService.parseMarkdown(content)
+
+        // Measure parsing performance over multiple iterations
+        let iterations = 10
+        let startTime = CFAbsoluteTimeGetCurrent()
+
+        for _ in 0..<iterations {
+            _ = try await documentService.parseMarkdown(content)
         }
+
+        let endTime = CFAbsoluteTimeGetCurrent()
+        let averageTime = (endTime - startTime) / Double(iterations)
+
+        // Assert reasonable performance: average parse time < 500ms for 1000 lines
+        XCTAssertLessThan(averageTime, 0.5, "Parsing performance degraded: \(averageTime)s average")
+
+        print("Average parsing time: \(String(format: "%.3f", averageTime))s for \(content.count) characters")
     }
 
     func testAttributedStringRendering() async throws {
@@ -187,7 +200,7 @@ final class MarkdownCoreTests: XCTestCase {
         let metadata = document.metadata
 
         XCTAssertEqual(metadata.title, "Test Title")
-        XCTAssertEqual(metadata.wordCount, 13)
+        XCTAssertEqual(metadata.wordCount, 16) // Test Title (2) + sentence (9) + Another Section (2) + More content here (3) = 16
         XCTAssertEqual(metadata.estimatedReadingTime, 1) // At 200 WPM
         XCTAssertTrue(metadata.lineCount > 0)
         XCTAssertTrue(metadata.characterCount > 0)

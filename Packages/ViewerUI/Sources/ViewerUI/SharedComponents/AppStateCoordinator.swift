@@ -22,6 +22,7 @@ public class AppStateCoordinator {
     public let searchState = SearchState()
     public let uiState = UIState()
     public let userPreferences = UserPreferences()
+    public let tabState = TabState()
 
     // MARK: - Services
 
@@ -87,6 +88,13 @@ public class AppStateCoordinator {
         setupPerformanceMonitoring()
     }
 
+    // MARK: - Settings Access
+
+    /// Access to editor settings from preferences
+    public var editorSettings: EditorSettings {
+        preferencesService.getAllPreferences().editorSettings
+    }
+
     // MARK: - App Lifecycle
 
     public func initialize() async {
@@ -114,6 +122,11 @@ public class AppStateCoordinator {
 
             do {
                 let document = try await self.documentService.loadDocument(reference)
+
+                // Add document as a new tab
+                self.tabState.addTab(document: document)
+
+                // Update current document state for backwards compatibility
                 self.documentState.currentDocument = document
                 self.documentState.documentContent = document.attributedContent
                 self.documentState.documentMetadata = document.metadata
@@ -153,6 +166,11 @@ public class AppStateCoordinator {
         await self.loadDocument(currentDocument.reference)
     }
 
+    /// Save document content with security-scoped access
+    public func saveDocument(content: String, to url: URL) async throws {
+        try await fileService.saveDocument(content: content, to: url)
+    }
+
     public func closeDocument() {
         documentState.currentDocument = nil
         documentState.documentContent = AttributedString()
@@ -167,6 +185,51 @@ public class AppStateCoordinator {
 
         uiState.isDocumentLoaded = false
         uiState.hasUnsavedChanges = false
+    }
+
+    // MARK: - Tab Operations
+
+    /// Switch to a specific tab and update document state
+    public func switchToTab(_ tabId: UUID) {
+        // Save current tab's scroll position
+        if let currentActiveId = tabState.activeTabId {
+            tabState.updateScrollPosition(documentState.scrollPosition, for: currentActiveId)
+        }
+
+        // Switch tab
+        tabState.switchToTab(tabId)
+
+        // Update document state from new active tab
+        updateDocumentStateFromActiveTab()
+    }
+
+    /// Close a specific tab
+    public func closeTab(_ tabId: UUID) {
+        tabState.closeTab(tabId)
+
+        // Update document state from new active tab
+        updateDocumentStateFromActiveTab()
+    }
+
+    /// Update DocumentState to reflect the currently active tab
+    private func updateDocumentStateFromActiveTab() {
+        if let activeTab = tabState.activeTab {
+            documentState.currentDocument = activeTab.document
+            documentState.documentContent = activeTab.document.attributedContent
+            documentState.documentMetadata = activeTab.document.metadata
+            documentState.scrollPosition = activeTab.scrollPosition
+            documentState.selectedRange = activeTab.selectedRange
+
+            uiState.isDocumentLoaded = true
+
+            // Update search outline for new document
+            Task {
+                await updateSearchOutline()
+            }
+        } else {
+            // No active tab - clear document state
+            closeDocument()
+        }
     }
 
     // MARK: - Search Operations
@@ -185,16 +248,25 @@ public class AppStateCoordinator {
             }
 
             do {
-                let results = try await self.searchService.search(
-                    query,
-                    options: options,
-                    in: self.documentState.currentDocument
-                )
+                let results: [SearchResult]
+
+                // Search based on scope
+                switch self.searchState.searchScope {
+                case .currentDocument:
+                    results = try await self.searchService.search(
+                        query,
+                        options: options,
+                        in: self.documentState.currentDocument
+                    )
+
+                case .allOpenDocuments:
+                    results = try await self.searchAllOpenDocuments(query, options: options)
+                }
 
                 self.searchState.results = results
                 self.searchState.currentResultIndex = 0
 
-                // Update document highlighting
+                // Update document highlighting for current document
                 if let document = self.documentState.currentDocument {
                     let highlightedContent = await self.highlightSearchResults(
                         in: document.attributedContent,
@@ -209,6 +281,29 @@ public class AppStateCoordinator {
 
             self.searchState.isSearching = false
         }
+    }
+
+    /// Search across all open documents in tabs
+    private func searchAllOpenDocuments(_ query: String, options: SearchOptions) async throws -> [SearchResult] {
+        var allResults: [SearchResult] = []
+
+        for tab in tabState.tabs {
+            do {
+                let results = try await searchService.search(
+                    query,
+                    options: options,
+                    in: tab.document
+                )
+
+                // Add results directly (tab info stored in document reference)
+                allResults.append(contentsOf: results)
+            } catch {
+                // Continue searching other documents even if one fails
+                print("Search failed for document: \(tab.document.reference.url.lastPathComponent): \(error)")
+            }
+        }
+
+        return allResults
     }
 
     public func jumpToSearchResult(at index: Int) async {
@@ -397,8 +492,8 @@ public class AppStateCoordinator {
         for result in results {
             if let nsRange = result.attributedRange,
                let range = Range(nsRange, in: highlightedContent) {
-                highlightedContent[range].backgroundColor = .yellow.opacity(0.3)
-                highlightedContent[range].foregroundColor = .black
+                applyBackgroundColor(&highlightedContent, range: range, color: .yellow.opacity(0.3))
+                applyForegroundColor(&highlightedContent, range: range, color: .black)
             }
         }
 
@@ -422,12 +517,42 @@ public class AppStateCoordinator {
                 var emphasized = highlightedContent
                 // Convert NSRange to Range<AttributedString.Index>
                 if let range = Range(nsRange, in: emphasized) {
-                    emphasized[range].backgroundColor = .orange.opacity(0.6)
-                    emphasized[range].font = emphasized[range].font?.bold()
+                    applyBackgroundColor(&emphasized, range: range, color: .orange.opacity(0.6))
+                    applyBoldFont(&emphasized, range: range)
                     self.documentState.documentContent = emphasized
                 }
             }
         }
+    }
+
+    private func applyBackgroundColor(
+        _ attributedString: inout AttributedString,
+        range: Range<AttributedString.Index>,
+        color: Color
+    ) {
+        var container = AttributeContainer()
+        container.backgroundColor = color
+        attributedString[range].mergeAttributes(container)
+    }
+
+    private func applyForegroundColor(
+        _ attributedString: inout AttributedString,
+        range: Range<AttributedString.Index>,
+        color: Color
+    ) {
+        var container = AttributeContainer()
+        container.foregroundColor = color
+        attributedString[range].mergeAttributes(container)
+    }
+
+    private func applyBoldFont(
+        _ attributedString: inout AttributedString,
+        range: Range<AttributedString.Index>
+    ) {
+        let currentFont = attributedString[range].font ?? Font.body
+        var container = AttributeContainer()
+        container.font = currentFont.bold()
+        attributedString[range].mergeAttributes(container)
     }
 
     private func calculateScrollPosition(for result: SearchResult) async -> CGFloat {
@@ -437,8 +562,83 @@ public class AppStateCoordinator {
     }
 
     private func calculateScrollPosition(for outline: OutlineItem) async -> CGFloat {
-        // Calculate scroll position for heading
-        outline.position
+        // Calculate scroll position to center the heading in viewport
+        let targetPosition = outline.position
+        let viewportHeight = uiState.viewportHeight
+
+        // Center the heading by subtracting half the viewport height
+        let centeredPosition = max(0, targetPosition - (viewportHeight / 2))
+
+        return centeredPosition
+    }
+
+    // MARK: - Syntax Error Highlighting
+
+    public func jumpToSyntaxError(_ error: SyntaxError) async {
+        guard let document = documentState.currentDocument else { return }
+
+        let baseContent = document.attributedContent
+        guard let errorRange = rangeForLine(error.line, column: error.column, in: baseContent) else {
+            return
+        }
+
+        var highlighted = baseContent
+        applyBackgroundColor(&highlighted, range: errorRange, color: Color.red.opacity(0.25))
+        applyForegroundColor(&highlighted, range: errorRange, color: Color.primary)
+
+        documentState.documentContent = highlighted
+        let targetPosition = CGFloat(max(error.line - 1, 0)) * 20.0
+        documentState.scrollPosition = targetPosition
+    }
+
+    private func rangeForLine(
+        _ line: Int,
+        column: Int,
+        in content: AttributedString
+    ) -> Range<AttributedString.Index>? {
+        guard line > 0 else { return nil }
+
+        var currentLine = 1
+        var lineStart = content.startIndex
+        var index = content.startIndex
+
+        while index < content.endIndex {
+            let character = content.characters[index]
+            if character == "\n" {
+                let lineEndExclusive = content.index(afterCharacter: index)
+                if currentLine == line {
+                    let start = advance(lineStart, by: max(column - 1, 0), within: lineEndExclusive, in: content)
+                    return start..<lineEndExclusive
+                }
+                currentLine += 1
+                lineStart = lineEndExclusive
+            }
+            index = content.index(afterCharacter: index)
+        }
+
+        if currentLine == line {
+            let start = advance(lineStart, by: max(column - 1, 0), within: content.endIndex, in: content)
+            return start..<content.endIndex
+        }
+
+        return nil
+    }
+
+    private func advance(
+        _ start: AttributedString.Index,
+        by offset: Int,
+        within end: AttributedString.Index,
+        in content: AttributedString
+    ) -> AttributedString.Index {
+        var current = start
+        var remaining = offset
+
+        while remaining > 0 && current < end {
+            current = content.index(afterCharacter: current)
+            remaining -= 1
+        }
+
+        return current
     }
 }
 
@@ -466,8 +666,15 @@ public class SearchState {
     public var currentResultIndex: Int = 0
     public var searchError: Error?
     public var outline: [OutlineItem] = []
+    public var searchScope: SearchScope = .currentDocument
 
     public init() {}
+}
+
+/// Search scope for multi-document search
+public enum SearchScope: String, Sendable, CaseIterable {
+    case currentDocument = "Current Document"
+    case allOpenDocuments = "All Open Documents"
 }
 
 @Observable
@@ -475,10 +682,12 @@ public class UIState {
     public var isDocumentLoaded: Bool = false
     public var sidebarVisible: Bool = true
     public var searchVisible: Bool = false
+    public var isEditing: Bool = false
     public var hasUnsavedChanges: Bool = false
     public var hasSearchResults: Bool = false
     public var currentModalPresentation: ModalPresentation?
     public var showingDocumentPicker: Bool = false
+    public var viewportHeight: CGFloat = 600 // Default viewport height
 
     public init() {}
 }
@@ -573,6 +782,7 @@ extension AppStateCoordinator {
 // MARK: - Placeholder Service Classes
 
 /// Search manager proxy to provide compatibility with iOS/macOS apps
+@MainActor
 public class SearchManagerProxy {
     private let searchService: SearchService
 
@@ -598,6 +808,7 @@ public class SearchManagerProxy {
 }
 
 /// Accessibility manager for platform-specific accessibility features
+@MainActor
 public class AccessibilityManager {
     public func initialize() async {
         // Initialize accessibility features
@@ -609,6 +820,7 @@ public class AccessibilityManager {
 }
 
 /// Rendering engine for platform-specific rendering optimizations
+@MainActor
 public class RenderingEngine {
     public func initialize() async {
         // Initialize rendering engine
@@ -624,6 +836,7 @@ public class RenderingEngine {
 }
 
 /// Document cache for performance optimization
+@MainActor
 public class DocumentCache {
     public func initialize() async {
         // Initialize document cache

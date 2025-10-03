@@ -12,7 +12,7 @@ import SwiftUI
 public struct SearchInterface: View {
     // MARK: - State Management
 
-    @Environment(AppStateCoordinator.self) private var coordinator
+    @Bindable var coordinator: AppStateCoordinator
     @Environment(\.platform) private var platform
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -20,11 +20,13 @@ public struct SearchInterface: View {
 
     @State private var searchHistory: [String] = []
     @State private var showingHistory = false
+    @State private var queryText: String = ""
 
     // Search options state
     @State private var caseSensitive = false
     @State private var wholeWords = false
     @State private var useRegex = false
+    @State private var searchScope: SearchScope = .currentDocument
 
     // Computed search options
     private var searchOptions: SearchOptions {
@@ -37,12 +39,18 @@ public struct SearchInterface: View {
 
     // MARK: - Accessibility
 
-    @FocusState private var isSearchFocused: Bool
+    private enum FocusTarget: Hashable {
+        case searchField
+    }
+
+    @FocusState private var focusedField: FocusTarget?
     @AccessibilityFocusState private var isSearchFieldFocused: Bool
 
     // MARK: - Initialization
 
-    public init() {}
+    public init(coordinator: AppStateCoordinator) {
+        self.coordinator = coordinator
+    }
 
     // MARK: - View Body
 
@@ -65,9 +73,15 @@ public struct SearchInterface: View {
         .accessibilityLabel("Search Interface")
         .onAppear {
             loadSearchHistory()
+            queryText = coordinator.searchState.query
+            searchScope = coordinator.searchState.searchScope
+            focusSearchField()
+        }
+        .onChange(of: queryText) { _, newValue in
+            handleLocalQueryChange(newValue)
         }
         .onChange(of: coordinator.searchState.query) { _, newQuery in
-            handleSearchQueryChange(newQuery)
+            syncQueryFromCoordinator(newQuery)
         }
     }
 
@@ -90,53 +104,57 @@ public struct SearchInterface: View {
 
     private var searchFieldView: some View {
         HStack(spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                    .font(.system(size: 16))
-
-                TextField("Search document...", text: searchBinding)
-                    .textFieldStyle(.plain)
-                    .focused($isSearchFocused)
-                    .accessibilityFocused($isSearchFieldFocused)
-                    .accessibilityLabel("Search document")
-                    .accessibilityValue(searchAccessibilityValue)
-                    .onSubmit {
-                        performSearch()
-                    }
-                    .platformConditional(.macOS) { field in
-                        field.onKeyPress(.downArrow) {
-                            focusNextResult()
-                            return .handled
-                        }
-                        .onKeyPress(.upArrow) {
-                            focusPreviousResult()
-                            return .handled
-                        }
-                        .onKeyPress(.escape) {
-                            clearSearch()
-                            return .handled
-                        }
-                    }
-
-                if !coordinator.searchState.query.isEmpty {
-                    Button("Clear") {
-                        clearSearch()
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel("Clear search")
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(Color.systemGray6)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            searchFieldInput
 
             if !coordinator.searchState.query.isEmpty {
                 searchNavigationControls
             }
         }
+    }
+
+    @ViewBuilder
+    private var searchFieldInput: some View {
+#if os(macOS)
+        MacSearchField(
+            text: $queryText,
+            isFocused: macSearchFocusBinding,
+            placeholder: "Search document...",
+            onSubmit: { performSearch() },
+            onMoveUp: { focusPreviousResult() },
+            onMoveDown: { focusNextResult() },
+            onEscape: { clearSearch() }
+        )
+        .frame(minHeight: 32)
+#else
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.system(size: 16))
+
+            TextField("Search document...", text: $queryText)
+                .textFieldStyle(.plain)
+                .focused($focusedField, equals: .searchField)
+                .accessibilityFocused($isSearchFieldFocused)
+                .accessibilityLabel("Search document")
+                .accessibilityValue(searchAccessibilityValue)
+                .onSubmit {
+                    performSearch()
+                }
+
+            if !coordinator.searchState.query.isEmpty {
+                Button("Clear") {
+                    clearSearch()
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.systemGray6)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+#endif
     }
 
     // MARK: - Search Navigation Controls
@@ -173,33 +191,51 @@ public struct SearchInterface: View {
     // MARK: - Search Options
 
     private var searchOptionsView: some View {
-        HStack(spacing: 16) {
-            Toggle("Case Sensitive", isOn: $caseSensitive)
-                .toggleStyle(.button)
-                .font(.caption)
-                .accessibilityLabel("Case sensitive search")
-
-            Toggle("Whole Words", isOn: $wholeWords)
-                .toggleStyle(.button)
-                .font(.caption)
-                .accessibilityLabel("Whole words only")
-
-            Toggle("Regex", isOn: $useRegex)
-                .toggleStyle(.button)
-                .font(.caption)
-                .accessibilityLabel("Regular expression search")
-
-            Spacer()
-
-            Button("Options") {
-                // Show advanced search options
+        VStack(spacing: 12) {
+            // Search scope picker
+            if coordinator.tabState.tabs.count > 1 {
+                Picker("Search Scope", selection: $searchScope) {
+                    ForEach(SearchScope.allCases, id: \.self) { scope in
+                        Text(scope.rawValue).tag(scope)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityLabel("Search scope")
+                .onChange(of: searchScope) { _, newScope in
+                    coordinator.searchState.searchScope = newScope
+                    performSearchWithOptions()
+                }
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+
+            // Search options
+            HStack(spacing: 16) {
+                Toggle("Case Sensitive", isOn: $caseSensitive)
+                    .toggleStyle(.button)
+                    .font(.caption)
+                    .accessibilityLabel("Case sensitive search")
+
+                Toggle("Whole Words", isOn: $wholeWords)
+                    .toggleStyle(.button)
+                    .font(.caption)
+                    .accessibilityLabel("Whole words only")
+
+                Toggle("Regex", isOn: $useRegex)
+                    .toggleStyle(.button)
+                    .font(.caption)
+                    .accessibilityLabel("Regular expression search")
+
+                Spacer()
+
+                Button("Options") {
+                    // Show advanced search options
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+            .onChange(of: caseSensitive) { _, _ in performSearchWithOptions() }
+            .onChange(of: wholeWords) { _, _ in performSearchWithOptions() }
+            .onChange(of: useRegex) { _, _ in performSearchWithOptions() }
         }
-        .onChange(of: caseSensitive) { _, _ in performSearchWithOptions() }
-        .onChange(of: wholeWords) { _, _ in performSearchWithOptions() }
-        .onChange(of: useRegex) { _, _ in performSearchWithOptions() }
     }
 
     // MARK: - Search States
@@ -370,16 +406,6 @@ public struct SearchInterface: View {
 
     // MARK: - Computed Properties
 
-    private var searchBinding: Binding<String> {
-        Binding(
-            get: { coordinator.searchState.query },
-            set: { newValue in
-                coordinator.searchState.query = newValue
-                showingHistory = newValue.isEmpty && isSearchFocused
-            }
-        )
-    }
-
     private var searchAccessibilityValue: String {
         if coordinator.searchState.isSearching {
             return "Searching"
@@ -436,11 +462,12 @@ public struct SearchInterface: View {
     }
 
     private func clearSearch() {
+        queryText = ""
         coordinator.searchState.query = ""
         coordinator.searchState.results = []
         coordinator.searchState.currentResultIndex = 0
         showingHistory = false
-        isSearchFocused = false
+        focusSearchField()
     }
 
     private func nextResult() {
@@ -524,20 +551,45 @@ public struct SearchInterface: View {
         UserDefaults.standard.removeObject(forKey: "SearchHistory")
     }
 
-    private func handleSearchQueryChange(_ newQuery: String) {
-        if newQuery.isEmpty {
+    private func handleLocalQueryChange(_ newValue: String) {
+        coordinator.searchState.query = newValue
+        showingHistory = newValue.isEmpty && focusedField == .searchField
+
+        guard !newValue.isEmpty else {
             coordinator.searchState.results = []
             coordinator.searchState.currentResultIndex = 0
-        } else {
-            // Debounced search
-            Task {
-                try? await Task.sleep(for: .milliseconds(300))
-                if coordinator.searchState.query == newQuery {
-                    await coordinator.performSearch(newQuery, options: searchOptions)
-                }
-            }
+            return
+        }
+
+        Task {
+            try? await Task.sleep(for: .milliseconds(250))
+            guard coordinator.searchState.query == newValue else { return }
+            await coordinator.performSearch(newValue, options: searchOptions)
         }
     }
+
+    private func syncQueryFromCoordinator(_ newQuery: String) {
+        guard newQuery != queryText else { return }
+        queryText = newQuery
+    }
+
+    private func focusSearchField() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(120))
+            focusedField = .searchField
+        }
+    }
+
+#if os(macOS)
+    private var macSearchFocusBinding: Binding<Bool> {
+        Binding(
+            get: { focusedField == .searchField },
+            set: { value in
+                focusedField = value ? .searchField : nil
+            }
+        )
+    }
+#endif
 }
 
 // SearchOptions is now imported from Search module
@@ -547,8 +599,7 @@ public struct SearchInterface: View {
 #if DEBUG
 struct SearchInterface_Previews: PreviewProvider {
     static var previews: some View {
-        SearchInterface()
-            .environment(AppStateCoordinator())
+        SearchInterface(coordinator: AppStateCoordinator())
             .previewDisplayName("Search Interface")
     }
 }

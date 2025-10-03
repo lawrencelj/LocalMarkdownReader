@@ -26,13 +26,12 @@ public struct ContentExtractor {
     /// Extract comprehensive document metadata
     public func extractMetadata(from document: Document, content: String, reference: DocumentReference) async throws -> DocumentMetadata {
         let lines = content.components(separatedBy: .newlines)
-        let words = content.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
 
         // Extract title
         let title = extractTitle(from: document)
 
-        // Count statistics
-        let wordCount = words.count
+        // Count statistics using proper markdown-aware counting
+        let wordCount = countWords(in: document)
         let characterCount = content.count
         let lineCount = lines.count
         let estimatedReadingTime = DocumentMetadata.calculateReadingTime(wordCount: wordCount)
@@ -233,6 +232,33 @@ public struct ContentExtractor {
 
         for child in markup.children {
             extractLanguagesRecursive(child, languages: &languages)
+        }
+    }
+
+    /// Count words in document, excluding code blocks and inline code
+    private func countWords(in document: Document) -> Int {
+        var wordCount = 0
+        countWordsRecursive(document, wordCount: &wordCount)
+        return wordCount
+    }
+
+    private func countWordsRecursive(_ markup: Markup, wordCount: inout Int) {
+        // Skip code blocks and inline code
+        if markup is CodeBlock || markup is InlineCode {
+            return
+        }
+
+        // If this is a text node, count its words
+        if let text = markup as? Text {
+            let words = text.string
+                .components(separatedBy: .whitespacesAndNewlines)
+                .filter { !$0.isEmpty }
+            wordCount += words.count
+        }
+
+        // Recursively process children
+        for child in markup.children {
+            countWordsRecursive(child, wordCount: &wordCount)
         }
     }
 }

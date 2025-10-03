@@ -24,15 +24,16 @@ public actor SettingsManager {
     // MARK: - Settings Import/Export
 
     /// Export settings to data
-    @MainActor
-    public func exportSettings(_ preferences: UserPreferences) throws -> Data {
+    public func exportSettings(_ preferences: UserPreferences) async throws -> Data {
+        let snapshot = await UserPreferencesSnapshot.capture(from: preferences)
+
         let preferencesData = UserPreferencesData(
-            theme: preferences.theme,
-            accessibilitySettings: preferences.accessibilitySettings,
-            privacySettings: preferences.privacySettings,
-            featureToggles: preferences.featureToggles,
-            editorSettings: preferences.editorSettings,
-            performanceSettings: preferences.performanceSettings
+            theme: snapshot.theme,
+            accessibilitySettings: snapshot.accessibilitySettings,
+            privacySettings: snapshot.privacySettings,
+            featureToggles: snapshot.featureToggles,
+            editorSettings: snapshot.editorSettings,
+            performanceSettings: snapshot.performanceSettings
         )
 
         let exportData = SettingsExportData(

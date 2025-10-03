@@ -19,7 +19,7 @@ public class FileService: ObservableObject {
     private let securityManager: SecurityManager
 
     public init() {
-        self.documentPicker = DocumentPicker()
+        self.documentPicker = DocumentPicker(configuration: .multipleSelection)
         self.recentDocuments = RecentDocuments()
         self.securityManager = SecurityManager.shared
     }
@@ -29,6 +29,11 @@ public class FileService: ObservableObject {
     /// Present document picker and return selected document URL
     public func openDocument() async throws -> URL {
         try await documentPicker.selectDocument()
+    }
+
+    /// Present document picker and return multiple selected document URLs
+    public func openDocuments() async throws -> [URL] {
+        try await documentPicker.selectDocuments()
     }
 
     /// Create a new document with save dialog
@@ -49,6 +54,11 @@ public class FileService: ObservableObject {
     /// Load document content from URL
     public func loadDocument(from url: URL) async throws -> String {
         try await loadDocumentContent(from: url)
+    }
+
+    /// Save document content to URL with security-scoped access
+    public func saveDocument(content: String, to url: URL) async throws {
+        try await saveDocumentContent(content, to: url)
     }
 
     /// Get list of recent documents
@@ -192,6 +202,46 @@ public class FileService: ObservableObject {
             }
         }
     }
+
+    private func saveDocumentContent(_ content: String, to url: URL) async throws {
+        // Use SecurityManager's safe scoped access method to prevent resource leaks
+        try await securityManager.withSecurityScopedAccess(to: url) {
+            // Enhanced input validation
+            guard url.isFileURL,
+                  !url.path.contains("../"), // Prevent path traversal
+                  !url.path.hasPrefix("/System/"), // Prevent system file access
+                  !url.path.hasPrefix("/private/") else { // Prevent private file access
+                throw FileAccessError.accessDenied
+            }
+
+            // Validate file type
+            let fileExtension = url.pathExtension.lowercased()
+            guard fileExtension.isEmpty || FileAccessConfiguration.supportedExtensions.contains(fileExtension) else {
+                throw FileAccessError.unsupportedFileType
+            }
+
+            // Validate content size
+            let contentSize = content.utf8.count
+            guard contentSize <= FileAccessConfiguration.maxFileSize else {
+                throw FileAccessError.fileTooLarge(maxSize: FileAccessConfiguration.maxFileSize)
+            }
+
+            // Check file is writable
+            if FileManager.default.fileExists(atPath: url.path) {
+                let resourceValues = try url.resourceValues(forKeys: [.isWritableKey])
+                guard resourceValues.isWritable == true else {
+                    throw FileAccessError.accessDenied
+                }
+            }
+
+            // Write content atomically with UTF-8 encoding
+            do {
+                try content.write(to: url, atomically: true, encoding: .utf8)
+            } catch {
+                throw FileAccessError.writeFailed(underlying: error)
+            }
+        }
+    }
 }
 
 // MARK: - Supporting Types
@@ -266,6 +316,7 @@ public enum FileAccessError: Error, LocalizedError, Sendable {
     case fileTooLarge(maxSize: Int64)
     case unsupportedFileType
     case readFailed(underlying: Error)
+    case writeFailed(underlying: Error)
     case bookmarkCreationFailed
     case bookmarkResolutionFailed
     case securityScopeFailure
@@ -282,6 +333,8 @@ public enum FileAccessError: Error, LocalizedError, Sendable {
             return "The file type is not supported"
         case .readFailed(let underlying):
             return "Failed to read file: \(underlying.localizedDescription)"
+        case .writeFailed(let underlying):
+            return "Failed to write file: \(underlying.localizedDescription)"
         case .bookmarkCreationFailed:
             return "Failed to create security-scoped bookmark"
         case .bookmarkResolutionFailed:

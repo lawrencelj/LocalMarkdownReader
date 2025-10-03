@@ -18,14 +18,14 @@ public class DocumentService: ObservableObject {
 
     // MARK: - Frontend Interface Methods
 
-    /// Load and parse a document from reference
+    /// Load and parse a document from reference with error tolerance
     public func loadDocument(_ reference: DocumentReference) async throws -> DocumentModel {
         try await performanceMonitor.trackOperation("load_document") {
             // Read file content
             let content = try await loadFileContent(from: reference)
 
-            // Parse the document
-            let document = try await parser.parseDocument(content: content, reference: reference)
+            // Parse with error tolerance - doesn't throw on syntax errors
+            let document = await parser.parseDocumentWithErrorTolerance(content: content, reference: reference)
 
             return document
         }
@@ -91,8 +91,6 @@ public class DocumentService: ObservableObject {
 
     private func loadFileContent(from reference: DocumentReference) async throws -> String {
         // Handle security-scoped resources
-        var shouldStopAccessing = false
-
         if let bookmark = reference.bookmark {
             // Resolve security-scoped bookmark
             var isStale = false
@@ -111,15 +109,15 @@ public class DocumentService: ObservableObject {
                 throw DocumentError.accessDenied
             }
 
-            shouldStopAccessing = true
-
-            defer {
-                if shouldStopAccessing {
-                    resolvedURL.stopAccessingSecurityScopedResource()
-                }
+            // Load content BEFORE stopping access
+            do {
+                let content = try await loadContentFromURL(resolvedURL)
+                resolvedURL.stopAccessingSecurityScopedResource()
+                return content
+            } catch {
+                resolvedURL.stopAccessingSecurityScopedResource()
+                throw error
             }
-
-            return try await loadContentFromURL(resolvedURL)
         } else {
             return try await loadContentFromURL(reference.url)
         }

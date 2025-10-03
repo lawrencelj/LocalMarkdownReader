@@ -26,8 +26,7 @@ struct MarkdownReaderApp: App {
         }
 
         Settings {
-            Text("Settings placeholder")
-                .frame(width: 600, height: 500)
+            SettingsView()
         }
     }
 

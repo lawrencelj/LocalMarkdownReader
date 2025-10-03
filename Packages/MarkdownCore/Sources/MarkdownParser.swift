@@ -69,24 +69,124 @@ public actor MarkdownParser {
     /// Parse markdown content to DocumentModel
     public func parseDocument(content: String, reference: DocumentReference) async throws -> DocumentModel {
         try await performanceMonitor.trackOperation("parse_document") {
-            // Validate input
-            try await validator.validateContent(content)
+            // Sanitize and validate input
+            let sanitizedContent = try await validator.sanitizeContent(content)
 
             // Parse markdown to attributed string
-            let attributedContent = try await parseToAttributedString(content)
+            let attributedContent = try await parseToAttributedString(sanitizedContent)
 
             // Extract metadata
-            let metadata = try await extractMetadata(from: content, reference: reference)
+            let metadata = try await extractMetadata(from: sanitizedContent, reference: reference)
 
             // Extract outline
-            let outline = try await extractOutline(from: content)
+            let outline = try await extractOutline(from: sanitizedContent)
 
             return DocumentModel(
                 reference: reference,
-                content: content,
+                content: sanitizedContent,
                 attributedContent: attributedContent,
                 metadata: metadata,
                 outline: outline
+            )
+        }
+    }
+
+    /// Parse markdown content with error tolerance - collects syntax errors but doesn't throw
+    public func parseDocumentWithErrorTolerance(content: String, reference: DocumentReference) async -> DocumentModel {
+        // Parse with error tolerance
+        do {
+            return try await performanceMonitor.trackOperation("parse_document_tolerant") {
+            // Validate and collect errors instead of throwing
+            let validationResult = await validator.validateContentWithErrorCollection(content)
+
+            // Use the content even if there are errors (for warnings)
+            // Only skip parsing if there are critical errors (file too large)
+            let criticalErrors = validationResult.errors.filter { $0.severity == .error }
+            var sanitizedContent: String
+            var attributedContent: AttributedString
+            var metadata: DocumentMetadata
+            var outline: [HeadingItem]
+
+            if criticalErrors.isEmpty {
+                // Parse normally even with warnings
+                do {
+                    sanitizedContent = try await validator.sanitizeContent(content)
+                    attributedContent = try await parseToAttributedString(sanitizedContent)
+                    metadata = try await extractMetadata(from: sanitizedContent, reference: reference)
+                    outline = try await extractOutline(from: sanitizedContent)
+                } catch {
+                    // Fallback to basic parsing if sanitization fails
+                    sanitizedContent = content
+                    attributedContent = AttributedString(content)
+                    metadata = DocumentMetadata(
+                        title: reference.url.deletingPathExtension().lastPathComponent,
+                        wordCount: content.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.count,
+                        characterCount: content.count,
+                        lineCount: content.components(separatedBy: .newlines).count,
+                        estimatedReadingTime: max(1, content.components(separatedBy: .whitespacesAndNewlines).count / 200),
+                        lastModified: reference.lastModified,
+                        fileSize: reference.fileSize,
+                        encodingName: "UTF-8",
+                        hasImages: false,
+                        hasTables: false,
+                        hasCodeBlocks: false,
+                        languageHints: []
+                    )
+                    outline = []
+                }
+            } else {
+                // Critical errors - show error message in content
+                let errorMessage = criticalErrors.map { $0.message }.joined(separator: "\n")
+                sanitizedContent = "# Error Parsing Document\n\n\(errorMessage)\n\n---\n\nOriginal Content:\n\n\(content)"
+                attributedContent = AttributedString(sanitizedContent)
+                metadata = DocumentMetadata(
+                    title: "Error: \(reference.url.lastPathComponent)",
+                    wordCount: 0,
+                    characterCount: 0,
+                    lineCount: 0,
+                    estimatedReadingTime: 0,
+                    lastModified: reference.lastModified,
+                    fileSize: reference.fileSize,
+                    encodingName: "UTF-8",
+                    hasImages: false,
+                    hasTables: false,
+                    hasCodeBlocks: false,
+                    languageHints: []
+                )
+                outline = []
+            }
+
+            return DocumentModel(
+                reference: reference,
+                content: sanitizedContent,
+                attributedContent: attributedContent,
+                metadata: metadata,
+                outline: outline,
+                syntaxErrors: validationResult.errors
+            )
+            }
+        } catch {
+            // Fallback error document
+            return DocumentModel(
+                reference: reference,
+                content: content,
+                attributedContent: AttributedString("# Error\n\nFailed to parse document: \(error.localizedDescription)"),
+                metadata: DocumentMetadata(
+                    title: reference.url.lastPathComponent,
+                    wordCount: 0,
+                    characterCount: 0,
+                    lineCount: 0,
+                    estimatedReadingTime: 0,
+                    lastModified: reference.lastModified,
+                    fileSize: reference.fileSize,
+                    encodingName: "UTF-8",
+                    hasImages: false,
+                    hasTables: false,
+                    hasCodeBlocks: false,
+                    languageHints: []
+                ),
+                outline: [],
+                syntaxErrors: []
             )
         }
     }

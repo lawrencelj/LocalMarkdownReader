@@ -35,25 +35,31 @@ public struct DocumentViewer: View {
     // MARK: - View Body
 
     public var body: some View {
-        GeometryReader { geometry in
-            content(in: geometry)
-        }
-        .background(Color.systemBackground)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Markdown Document Content")
-        .accessibilityValue(accessibilityValue)
-        .accessibilityAction(.default) {
-            isContentFocused = true
-        }
-        .onAppear {
-            setupPerformanceMonitoring()
-            announceDocumentLoaded()
-        }
-        .onChange(of: coordinator.documentState.currentDocument) { _, _ in
-            handleDocumentChange()
-        }
-        .task {
-            await monitorPerformanceMetrics()
+        Group {
+            if coordinator.uiState.isEditing {
+                MarkdownEditorView(coordinator: coordinator)
+            } else {
+                GeometryReader { geometry in
+                    content(in: geometry)
+                }
+                .background(Color.systemBackground)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Markdown Document Content")
+                .accessibilityValue(accessibilityValue)
+                .accessibilityAction(.default) {
+                    isContentFocused = true
+                }
+                .onAppear {
+                    setupPerformanceMonitoring()
+                    announceDocumentLoaded()
+                }
+                .onChange(of: coordinator.documentState.currentDocument) { _, _ in
+                    handleDocumentChange()
+                }
+                .task {
+                    await monitorPerformanceMetrics()
+                }
+            }
         }
     }
 
@@ -86,49 +92,61 @@ public struct DocumentViewer: View {
 
     @ViewBuilder
     private func documentContentView(in geometry: GeometryProxy) -> some View {
-        ScrollView(.vertical) {
-            MarkdownRenderer(
-                content: coordinator.documentState.documentContent,
-                viewportBounds: $viewportBounds,
-                isOptimized: $isPerformanceOptimized
+        VStack(spacing: 12) {
+            if let document = coordinator.documentState.currentDocument,
+               !document.syntaxErrors.isEmpty {
+                SyntaxErrorBanner(errors: document.syntaxErrors) { error in
+                    Task { await coordinator.jumpToSyntaxError(error) }
+                }
+                .padding(.horizontal, horizontalPadding)
+            }
+
+            // Document Content with inline syntax error highlighting
+            ScrollView(.vertical) {
+                MarkdownRenderer(
+                    content: coordinator.documentState.documentContent,
+                    syntaxErrors: coordinator.documentState.currentDocument?.syntaxErrors ?? [],
+                    viewportBounds: $viewportBounds,
+                    isOptimized: $isPerformanceOptimized
+                )
+                .padding(.horizontal, horizontalPadding)
+                .padding(.vertical, 20)
+            }
+            // ScrollPosition is handled via onScrollGeometryChange below
+            .scrollIndicators(platform.supportsCursor ? .visible : .hidden)
+            .coordinateSpace(name: "documentScroll")
+            // Handle scroll position tracking with platform compatibility
+            .modifier(ScrollTrackingModifier(onScrollChange: handleScrollChange))
+            .refreshable {
+                await coordinator.refreshDocument()
+            }
+            .searchable(
+                text: searchBinding,
+                placement: {
+                    #if os(iOS)
+                    return platform.isIOS ? .navigationBarDrawer(displayMode: .always) : .automatic
+                    #else
+                    return .automatic
+                    #endif
+                }()
             )
-            .padding(.horizontal, horizontalPadding)
-            .padding(.vertical, 20)
-        }
-        // ScrollPosition is handled via onScrollGeometryChange below
-        .scrollIndicators(platform.supportsCursor ? .visible : .hidden)
-        .coordinateSpace(name: "documentScroll")
-        // Handle scroll position tracking with platform compatibility
-        .modifier(ScrollTrackingModifier(onScrollChange: handleScrollChange))
-        .refreshable {
-            await coordinator.refreshDocument()
-        }
-        .searchable(
-            text: searchBinding,
-            placement: {
-                #if os(iOS)
-                return platform.isIOS ? .navigationBarDrawer(displayMode: .always) : .automatic
-                #else
-                return .automatic
-                #endif
-            }()
-        )
-        .platformConditional(.macOS) { view in
-            view
-                .focusable()
-                .focusEffectDisabled()
-                .onKeyPress(.space) {
-                    scrollToNextPage()
-                    return .handled
-                }
-                .onKeyPress(.upArrow) {
-                    scrollUp()
-                    return .handled
-                }
-                .onKeyPress(.downArrow) {
-                    scrollDown()
-                    return .handled
-                }
+            .platformConditional(.macOS) { view in
+                view
+                    .focusable()
+                    .focusEffectDisabled()
+                    .onKeyPress(.space) {
+                        scrollToNextPage()
+                        return .handled
+                    }
+                    .onKeyPress(.upArrow) {
+                        scrollUp()
+                        return .handled
+                    }
+                    .onKeyPress(.downArrow) {
+                        scrollDown()
+                        return .handled
+                    }
+            }
         }
     }
 
@@ -266,6 +284,21 @@ public struct DocumentViewer: View {
         withAnimation(.easeOut(duration: 0.2)) {
             coordinator.documentState.scrollPosition = newPosition
         }
+    }
+
+    private func scrollToLine(_ line: Int) {
+        // Approximate scroll position based on line number
+        // Assume average line height of 20pt
+        let estimatedLineHeight: CGFloat = 20
+        let targetPosition = CGFloat(line) * estimatedLineHeight
+
+        withAnimation(.easeInOut(duration: 0.4)) {
+            coordinator.documentState.scrollPosition = targetPosition
+        }
+
+        // Announce navigation for accessibility
+        let announcement = "Jumped to line \(line)"
+        AccessibilityNotification.Announcement(announcement).post()
     }
 
     // MARK: - Performance Monitoring

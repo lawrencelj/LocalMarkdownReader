@@ -68,8 +68,8 @@ public class PreferencesService: ObservableObject {
     }
 
     /// Export settings
-    public func exportSettings() throws -> Data {
-        try settingsManager.exportSettings(userPreferences)
+    public func exportSettings() async throws -> Data {
+        try await settingsManager.exportSettings(userPreferences)
     }
 
     /// Import settings
@@ -98,13 +98,13 @@ public class PreferencesService: ObservableObject {
 
 /// Application theme configuration
 public struct AppTheme: Codable, Sendable, Hashable {
-    public let name: String
-    public let appearance: Appearance
-    public let accentColor: ThemeColor
-    public let fontSize: FontSize
-    public let fontFamily: FontFamily
-    public let lineSpacing: LineSpacing
-    public let codeHighlighting: CodeHighlightingTheme
+    public var name: String
+    public var appearance: Appearance
+    public var accentColor: ThemeColor
+    public var fontSize: FontSize
+    public var fontFamily: FontFamily
+    public var lineSpacing: LineSpacing
+    public var codeHighlighting: CodeHighlightingTheme
 
     public init(
         name: String,
@@ -259,15 +259,15 @@ public enum CodeHighlightingTheme: String, Codable, CaseIterable, Sendable {
 
 /// Accessibility configuration
 public struct AccessibilitySettings: Codable, Sendable, Hashable {
-    public let reduceMotion: Bool
-    public let increaseContrast: Bool
-    public let largerText: Bool
-    public let boldText: Bool
-    public let buttonShapes: Bool
-    public let reduceTransparency: Bool
-    public let voiceOverEnabled: Bool
-    public let speakSelection: Bool
-    public let speakScreen: Bool
+    public var reduceMotion: Bool
+    public var increaseContrast: Bool
+    public var largerText: Bool
+    public var boldText: Bool
+    public var buttonShapes: Bool
+    public var reduceTransparency: Bool
+    public var voiceOverEnabled: Bool
+    public var speakSelection: Bool
+    public var speakScreen: Bool
 
     public init(
         reduceMotion: Bool = false,
@@ -308,12 +308,12 @@ public struct AccessibilitySettings: Codable, Sendable, Hashable {
 
 /// Privacy configuration
 public struct PrivacySettings: Codable, Sendable, Hashable {
-    public let analyticsEnabled: Bool
-    public let crashReportingEnabled: Bool
-    public let usageDataCollection: Bool
-    public let personalizedAds: Bool
-    public let locationServicesEnabled: Bool
-    public let dataRetentionDays: Int
+    public var analyticsEnabled: Bool
+    public var crashReportingEnabled: Bool
+    public var usageDataCollection: Bool
+    public var personalizedAds: Bool
+    public var locationServicesEnabled: Bool
+    public var dataRetentionDays: Int
 
     public init(
         analyticsEnabled: Bool = false,
@@ -349,12 +349,12 @@ public struct PrivacySettings: Codable, Sendable, Hashable {
 
 /// Feature toggle configuration
 public struct FeatureToggles: Codable, Sendable, Hashable {
-    public let experimentalFeatures: Bool
-    public let betaSearch: Bool
-    public let advancedFormatting: Bool
-    public let cloudSync: Bool
-    public let collaborativeEditing: Bool
-    public let aiAssistance: Bool
+    public var experimentalFeatures: Bool
+    public var betaSearch: Bool
+    public var advancedFormatting: Bool
+    public var cloudSync: Bool
+    public var collaborativeEditing: Bool
+    public var aiAssistance: Bool
 
     public init(
         experimentalFeatures: Bool = false,
@@ -389,15 +389,15 @@ public struct FeatureToggles: Codable, Sendable, Hashable {
 
 /// Editor-specific configuration
 public struct EditorSettings: Codable, Sendable, Hashable {
-    public let wordWrap: Bool
-    public let lineNumbers: Bool
-    public let highlightCurrentLine: Bool
-    public let autoIndent: Bool
-    public let tabSize: Int
-    public let insertSpaces: Bool
-    public let trimTrailingWhitespace: Bool
-    public let autoSave: Bool
-    public let autoSaveDelay: TimeInterval
+    public var wordWrap: Bool
+    public var lineNumbers: Bool
+    public var highlightCurrentLine: Bool
+    public var autoIndent: Bool
+    public var tabSize: Int
+    public var insertSpaces: Bool
+    public var trimTrailingWhitespace: Bool
+    public var autoSave: Bool
+    public var autoSaveDelay: TimeInterval
 
     public init(
         wordWrap: Bool = true,
@@ -428,12 +428,13 @@ public struct EditorSettings: Codable, Sendable, Hashable {
 
 /// Performance optimization configuration
 public struct PerformanceSettings: Codable, Sendable, Hashable {
-    public let enableHardwareAcceleration: Bool
-    public let maxCacheSize: Int64
-    public let backgroundProcessing: Bool
-    public let preloadImages: Bool
-    public let animationsEnabled: Bool
-    public let maxRecentFiles: Int
+    public var enableHardwareAcceleration: Bool
+    public var maxCacheSize: Int64
+    public var backgroundProcessing: Bool
+    public var preloadImages: Bool
+    public var animationsEnabled: Bool
+    public var maxRecentFiles: Int
+    public var memoryUsageLimit: Int64  // In bytes
 
     public init(
         enableHardwareAcceleration: Bool = true,
@@ -441,7 +442,8 @@ public struct PerformanceSettings: Codable, Sendable, Hashable {
         backgroundProcessing: Bool = true,
         preloadImages: Bool = true,
         animationsEnabled: Bool = true,
-        maxRecentFiles: Int = 20
+        maxRecentFiles: Int = 20,
+        memoryUsageLimit: Int64 = 500 * 1024 * 1024  // 500MB default
     ) {
         self.enableHardwareAcceleration = enableHardwareAcceleration
         self.maxCacheSize = maxCacheSize
@@ -449,6 +451,7 @@ public struct PerformanceSettings: Codable, Sendable, Hashable {
         self.preloadImages = preloadImages
         self.animationsEnabled = animationsEnabled
         self.maxRecentFiles = maxRecentFiles
+        self.memoryUsageLimit = memoryUsageLimit
     }
 
     public static let `default` = PerformanceSettings()
@@ -460,7 +463,8 @@ public struct PerformanceSettings: Codable, Sendable, Hashable {
         backgroundProcessing: true,
         preloadImages: true,
         animationsEnabled: false,
-        maxRecentFiles: 50
+        maxRecentFiles: 50,
+        memoryUsageLimit: 1024 * 1024 * 1024  // 1GB
     )
 
     /// Low resource configuration
@@ -470,7 +474,8 @@ public struct PerformanceSettings: Codable, Sendable, Hashable {
         backgroundProcessing: false,
         preloadImages: false,
         animationsEnabled: false,
-        maxRecentFiles: 10
+        maxRecentFiles: 10,
+        memoryUsageLimit: 256 * 1024 * 1024  // 256MB
     )
 }
 
@@ -478,12 +483,12 @@ public struct PerformanceSettings: Codable, Sendable, Hashable {
 
 /// Complete user preferences data structure
 public struct UserPreferencesData: Codable, Sendable {
-    public let theme: AppTheme
-    public let accessibilitySettings: AccessibilitySettings
-    public let privacySettings: PrivacySettings
-    public let featureToggles: FeatureToggles
-    public let editorSettings: EditorSettings
-    public let performanceSettings: PerformanceSettings
+    public var theme: AppTheme
+    public var accessibilitySettings: AccessibilitySettings
+    public var privacySettings: PrivacySettings
+    public var featureToggles: FeatureToggles
+    public var editorSettings: EditorSettings
+    public var performanceSettings: PerformanceSettings
 
     public init(
         theme: AppTheme,

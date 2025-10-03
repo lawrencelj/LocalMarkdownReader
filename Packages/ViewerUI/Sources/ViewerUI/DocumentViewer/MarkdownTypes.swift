@@ -15,19 +15,22 @@ public struct RenderedSection: Identifiable {
     public let content: AttributedString
     public let estimatedHeight: CGFloat
     public let renderingPriority: RenderingPriority
+    public let lineRange: Range<Int>
 
     public init(
         id: String,
         range: NSRange,
         content: AttributedString,
         estimatedHeight: CGFloat = 0,
-        renderingPriority: RenderingPriority = .normal
+        renderingPriority: RenderingPriority = .normal,
+        lineRange: Range<Int> = 0..<0
     ) {
         self.id = id
         self.range = range
         self.content = content
         self.estimatedHeight = estimatedHeight
         self.renderingPriority = renderingPriority
+        self.lineRange = lineRange
     }
 }
 
@@ -211,14 +214,16 @@ extension RenderedSection {
                 range: NSRange(location: 0, length: 50),
                 content: AttributedString("# Sample Document\n\nThis is a sample markdown document."),
                 estimatedHeight: 120,
-                renderingPriority: .high
+                renderingPriority: .high,
+                lineRange: 0..<6
             ),
             RenderedSection(
                 id: "section-2",
                 range: NSRange(location: 50, length: 100),
                 content: AttributedString("## Features\n\n- Feature 1\n- Feature 2\n- Feature 3"),
                 estimatedHeight: 180,
-                renderingPriority: .normal
+                renderingPriority: .normal,
+                lineRange: 6..<12
             )
         ]
     }
