@@ -59,9 +59,12 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingDocumentPicker) {
             #if canImport(UIKit)
-            DocumentPickerView { url in
+            DocumentPickerView { urls in
                 Task {
-                    await loadDocument(from: url)
+                    // Load all selected documents
+                    for url in urls {
+                        await loadDocument(from: url)
+                    }
                 }
             }
             #else
@@ -437,12 +440,12 @@ enum NavigationDestination: String, CaseIterable {
 
 #if canImport(UIKit)
 private struct DocumentPickerView: UIViewControllerRepresentable {
-    let onDocumentSelected: (URL) -> Void
+    let onDocumentsSelected: ([URL]) -> Void
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.plainText, .data])
         picker.delegate = context.coordinator
-        picker.allowsMultipleSelection = false
+        picker.allowsMultipleSelection = true
         return picker
     }
 
@@ -451,19 +454,19 @@ private struct DocumentPickerView: UIViewControllerRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onDocumentSelected: onDocumentSelected)
+        Coordinator(onDocumentsSelected: onDocumentsSelected)
     }
 
     class Coordinator: NSObject, UIDocumentPickerDelegate {
-        let onDocumentSelected: (URL) -> Void
+        let onDocumentsSelected: ([URL]) -> Void
 
-        init(onDocumentSelected: @escaping (URL) -> Void) {
-            self.onDocumentSelected = onDocumentSelected
+        init(onDocumentsSelected: @escaping ([URL]) -> Void) {
+            self.onDocumentsSelected = onDocumentsSelected
         }
 
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-            guard let url = urls.first else { return }
-            onDocumentSelected(url)
+            guard !urls.isEmpty else { return }
+            onDocumentsSelected(urls)
         }
     }
 }
@@ -625,23 +628,16 @@ private struct AboutView: View {
     ContentView()
         .environment(AppStateCoordinator.preview)
         .environment(\.themeManager, ThemeManager())
-        .previewDevice(PreviewDevice(rawValue: "iPhone 15"))
-        .previewDisplayName("iPhone Portrait")
 }
 
-#Preview("iPhone - Landscape") {
+#Preview("iPhone - Landscape", traits: .landscapeLeft) {
     ContentView()
         .environment(AppStateCoordinator.preview)
         .environment(\.themeManager, ThemeManager())
-        .previewDevice(PreviewDevice(rawValue: "iPhone 15"))
-        .previewInterfaceOrientation(.landscapeLeft)
-        .previewDisplayName("iPhone Landscape")
 }
 
 #Preview("iPad") {
     ContentView()
         .environment(AppStateCoordinator.preview)
         .environment(\.themeManager, ThemeManager())
-        .previewDevice(PreviewDevice(rawValue: "iPad Pro (12.9-inch) (6th generation)"))
-        .previewDisplayName("iPad")
 }

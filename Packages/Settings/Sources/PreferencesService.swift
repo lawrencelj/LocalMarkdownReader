@@ -401,7 +401,7 @@ public struct EditorSettings: Codable, Sendable, Hashable {
 
     public init(
         wordWrap: Bool = true,
-        lineNumbers: Bool = false,
+        lineNumbers: Bool = true,
         highlightCurrentLine: Bool = true,
         autoIndent: Bool = true,
         tabSize: Int = 4,

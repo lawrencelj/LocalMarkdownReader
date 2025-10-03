@@ -30,6 +30,7 @@ public actor DocumentPicker {
         }
 
         public static let `default` = Configuration()
+        public static let multipleSelection = Configuration(allowsMultipleSelection: true)
     }
 
     private let configuration: Configuration

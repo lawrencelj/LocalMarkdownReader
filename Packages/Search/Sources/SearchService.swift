@@ -3,7 +3,7 @@
 /// Provides the primary interface for search operations expected by the
 /// frontend AppStateCoordinator, with <100ms response time optimization.
 
-import Foundation
+@preconcurrency import Foundation
 import MarkdownCore
 import OrderedCollections
 

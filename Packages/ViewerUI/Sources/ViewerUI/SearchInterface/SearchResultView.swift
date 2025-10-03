@@ -5,7 +5,7 @@
 /// the result location in the document.
 
 import Search
-import SwiftUI
+@preconcurrency import SwiftUI
 
 /// Individual search result view with context and highlighting
 struct SearchResultView: View {

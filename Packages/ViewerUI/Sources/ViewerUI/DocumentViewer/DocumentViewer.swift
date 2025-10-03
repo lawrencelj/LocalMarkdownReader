@@ -41,6 +41,12 @@ public struct DocumentViewer: View {
             } else {
                 GeometryReader { geometry in
                     content(in: geometry)
+                        .onAppear {
+                            coordinator.uiState.viewportHeight = geometry.size.height
+                        }
+                        .onChange(of: geometry.size) { _, newSize in
+                            coordinator.uiState.viewportHeight = newSize.height
+                        }
                 }
                 .background(Color.systemBackground)
                 .accessibilityElement(children: .contain)
@@ -106,11 +112,14 @@ public struct DocumentViewer: View {
                 MarkdownRenderer(
                     content: coordinator.documentState.documentContent,
                     syntaxErrors: coordinator.documentState.currentDocument?.syntaxErrors ?? [],
+                    showLineNumbers: coordinator.editorSettings.lineNumbers,
                     viewportBounds: $viewportBounds,
                     isOptimized: $isPerformanceOptimized
                 )
-                .padding(.horizontal, horizontalPadding)
+                .padding(.leading, 16)
+                .padding(.trailing, 16)
                 .padding(.vertical, 20)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             // ScrollPosition is handled via onScrollGeometryChange below
             .scrollIndicators(platform.supportsCursor ? .visible : .hidden)

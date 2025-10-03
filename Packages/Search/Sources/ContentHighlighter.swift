@@ -3,7 +3,7 @@
 /// Provides efficient text highlighting capabilities for search matches
 /// without disrupting layout performance.
 
-import Foundation
+@preconcurrency import Foundation
 
 #if os(macOS)
 import AppKit

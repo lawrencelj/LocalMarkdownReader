@@ -57,7 +57,7 @@ struct ContentView: View {
         .fileImporter(
             isPresented: $showingDocumentPicker,
             allowedContentTypes: [.plainText, UTType(filenameExtension: "md") ?? .data],
-            allowsMultipleSelection: false
+            allowsMultipleSelection: true
         ) { result in
             handleFileImport(result)
         }
@@ -342,9 +342,12 @@ struct ContentView: View {
     private func handleFileImport(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
-            guard let url = urls.first else { return }
+            guard !urls.isEmpty else { return }
             Task {
-                await loadDocument(from: url)
+                // Load all selected documents
+                for url in urls {
+                    await loadDocument(from: url)
+                }
             }
         case .failure(let error):
             // Handle error
@@ -353,14 +356,17 @@ struct ContentView: View {
     }
 
     private func handleDocumentDrop(_ providers: [NSItemProvider]) -> Bool {
-        guard let provider = providers.first else { return false }
+        guard !providers.isEmpty else { return false }
 
-        _ = provider.loadObject(ofClass: URL.self) { url, _ in
-            guard let url = url else { return }
+        // Load all dropped files
+        for provider in providers {
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                guard let url = url else { return }
 
-            DispatchQueue.main.async {
-                Task {
-                    await self.loadDocument(from: url)
+                DispatchQueue.main.async {
+                    Task {
+                        await self.loadDocument(from: url)
+                    }
                 }
             }
         }

@@ -13,6 +13,7 @@ public struct MarkdownRenderer: View {
 
     let content: AttributedString
     let syntaxErrors: [SyntaxError]
+    let showLineNumbers: Bool
     @Binding var viewportBounds: CGRect
     @Binding var isOptimized: Bool
 
@@ -31,18 +32,19 @@ public struct MarkdownRenderer: View {
     // MARK: - View Body
 
     public var body: some View {
-        LazyVStack(alignment: .leading, spacing: lineSpacing) {
-            ForEach(renderedSections.indices, id: \.self) { index in
-                sectionView(at: index)
-                    .id("section-\(index)")
+        LazyVStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(allLines.enumerated()), id: \.offset) { lineIndex, lineContent in
+                linePaneView(lineNumber: lineIndex + 1, content: lineContent, isEvenRow: lineIndex % 2 == 0)
                     .onAppear {
-                        sectionDidAppear(at: index)
+                        // Track visible line for optimization
+                        visibleSectionIndices.insert(lineIndex)
                     }
                     .onDisappear {
-                        sectionDidDisappear(at: index)
+                        visibleSectionIndices.remove(lineIndex)
                     }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             GeometryReader { geometry in
                 Color.clear
@@ -66,7 +68,61 @@ public struct MarkdownRenderer: View {
         }
     }
 
+    // MARK: - Line Pane View
+
+    @ViewBuilder
+    private func linePaneView(lineNumber: Int, content: String, isEvenRow: Bool) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            // Line number pane (left side, 40pt width)
+            if showLineNumbers {
+                Text("\(lineNumber)")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 40, alignment: .trailing)
+                    .padding(.trailing, 8)
+            }
+
+            // Content pane (right side, expandable)
+            Text(content)
+                .font(bodyFont)
+                .lineSpacing(lineSpacing)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
+                .padding(.horizontal, 8)
+        }
+        .background(
+            // Alternating shade with 5-degree difference (0.014 opacity)
+            Color.primary.opacity(isEvenRow ? 0.03 : 0.044)
+        )
+    }
+
+    // MARK: - Line Extraction
+
+    private var allLines: [String] {
+        let fullText = content.characters.map { String($0) }.joined()
+        let lines = fullText.components(separatedBy: .newlines)
+        return lines.isEmpty ? [""] : lines
+    }
+
     // MARK: - Section View Builder
+
+    @ViewBuilder
+    private func lineNumberView(for sectionIndex: Int) -> some View {
+        if sectionIndex < renderedSections.count {
+            let section = renderedSections[sectionIndex]
+
+            // Display all line numbers for lines in this section
+            VStack(alignment: .trailing, spacing: 0) {
+                ForEach(section.lineRange, id: \.self) { lineNumber in
+                    Text("\(lineNumber)")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineSpacing(lineSpacing)
+                        .frame(height: estimatedLineHeight)
+                }
+            }
+        }
+    }
 
     @ViewBuilder
     private func sectionView(at index: Int) -> some View {
@@ -482,6 +538,15 @@ public struct MarkdownRenderer: View {
         }
     }
 
+    private var estimatedLineHeight: CGFloat {
+        switch dynamicTypeSize {
+        case .xSmall, .small: return 18
+        case .medium, .large: return 20
+        case .xLarge, .xxLarge: return 24
+        default: return 28
+        }
+    }
+
     // MARK: - Utilities
 
     /// Converts ListStyle to RendererListStyle
@@ -609,6 +674,7 @@ struct MarkdownRenderer_Previews: PreviewProvider {
             MarkdownRenderer(
                 content: AttributedString("# Sample Content\n\nThis is a paragraph."),
                 syntaxErrors: [],
+                showLineNumbers: true,
                 viewportBounds: .constant(.zero),
                 isOptimized: .constant(false)
             )
