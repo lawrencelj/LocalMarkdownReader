@@ -204,40 +204,52 @@ public class FileService: ObservableObject {
     }
 
     private func saveDocumentContent(_ content: String, to url: URL) async throws {
-        // Use SecurityManager's safe scoped access method to prevent resource leaks
-        try await securityManager.withSecurityScopedAccess(to: url) {
-            // Enhanced input validation
-            guard url.isFileURL,
-                  !url.path.contains("../"), // Prevent path traversal
-                  !url.path.hasPrefix("/System/"), // Prevent system file access
-                  !url.path.hasPrefix("/private/") else { // Prevent private file access
+        // Enhanced input validation (performed before security checks)
+        guard url.isFileURL,
+              !url.path.contains("../"), // Prevent path traversal
+              !url.path.hasPrefix("/System/"), // Prevent system file access
+              !url.path.hasPrefix("/private/") else { // Prevent private file access
+            throw FileAccessError.accessDenied
+        }
+
+        // Validate file type
+        let fileExtension = url.pathExtension.lowercased()
+        guard fileExtension.isEmpty || FileAccessConfiguration.supportedExtensions.contains(fileExtension) else {
+            throw FileAccessError.unsupportedFileType
+        }
+
+        // Validate content size
+        let contentSize = content.utf8.count
+        guard contentSize <= FileAccessConfiguration.maxFileSize else {
+            throw FileAccessError.fileTooLarge(maxSize: FileAccessConfiguration.maxFileSize)
+        }
+
+        // Check file is writable
+        if FileManager.default.fileExists(atPath: url.path) {
+            let resourceValues = try url.resourceValues(forKeys: [.isWritableKey])
+            guard resourceValues.isWritable == true else {
                 throw FileAccessError.accessDenied
             }
+        }
 
-            // Validate file type
-            let fileExtension = url.pathExtension.lowercased()
-            guard fileExtension.isEmpty || FileAccessConfiguration.supportedExtensions.contains(fileExtension) else {
-                throw FileAccessError.unsupportedFileType
+        // Try security-scoped access first, fall back to direct access if not needed
+        do {
+            try await securityManager.withSecurityScopedAccess(to: url) {
+                try content.write(to: url, atomically: true, encoding: .utf8)
             }
-
-            // Validate content size
-            let contentSize = content.utf8.count
-            guard contentSize <= FileAccessConfiguration.maxFileSize else {
-                throw FileAccessError.fileTooLarge(maxSize: FileAccessConfiguration.maxFileSize)
-            }
-
-            // Check file is writable
-            if FileManager.default.fileExists(atPath: url.path) {
-                let resourceValues = try url.resourceValues(forKeys: [.isWritableKey])
-                guard resourceValues.isWritable == true else {
-                    throw FileAccessError.accessDenied
-                }
-            }
-
-            // Write content atomically with UTF-8 encoding
+        } catch SecurityError.accessFailed {
+            // Security-scoped access not needed or not available
+            // Try direct file write (for files the app created or non-sandboxed locations)
             do {
                 try content.write(to: url, atomically: true, encoding: .utf8)
             } catch {
+                throw FileAccessError.writeFailed(underlying: error)
+            }
+        } catch {
+            // Other security errors or write failures
+            if let writeError = error as? FileAccessError {
+                throw writeError
+            } else {
                 throw FileAccessError.writeFailed(underlying: error)
             }
         }
