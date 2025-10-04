@@ -91,16 +91,12 @@ public class RecentDocuments: ObservableObject {
             return
         }
 
-        Task {
-            await addRecentDocumentAsync(url)
-        }
+        addRecentDocumentWithBookmark(url, bookmark: nil)
     }
 
     /// Add document with security-scoped bookmark
     public func addRecentDocument(_ url: URL, bookmark: Data?) {
-        Task {
-            await addRecentDocumentWithBookmark(url, bookmark: bookmark)
-        }
+        addRecentDocumentWithBookmark(url, bookmark: bookmark)
     }
 
     /// Remove document from recent list
@@ -154,18 +150,12 @@ public class RecentDocuments: ObservableObject {
 
     // MARK: - Private Implementation
 
-    @MainActor
-    private func addRecentDocumentAsync(_ url: URL) async {
-        await addRecentDocumentWithBookmark(url, bookmark: nil)
-    }
-
-    @MainActor
-    private func addRecentDocumentWithBookmark(_ url: URL, bookmark: Data?) async {
+    private func addRecentDocumentWithBookmark(_ url: URL, bookmark: Data?) {
         // Remove existing entry if present
         recentDocuments.removeAll { $0.url == url }
 
         // Get file metadata
-        let metadata = try? await FileMetadata.from(url: url)
+        let metadata = try? FileMetadata.from(url: url)
 
         // Create new recent document
         let recentDocument = RecentDocument(

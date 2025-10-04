@@ -446,6 +446,12 @@ private actor SearchIndex {
                 document: document
             )
 
+            let matchedText = extractMatchText(
+                document: document,
+                termPosition: term.position,
+                termLength: term.term.count
+            )
+
             // Extract context on-demand from document content (if option enabled)
             let context = options.includeContext ? extractContextFromDocument(
                 document: document,
@@ -462,7 +468,7 @@ private actor SearchIndex {
 
             let result = SearchResult(
                 documentId: term.documentId,
-                text: term.term,
+                text: matchedText.isEmpty ? term.term : matchedText,
                 context: context,  // Generated on-demand instead of stored
                 range: NSRange(location: term.position, length: term.term.count),
                 lineNumber: term.lineNumber,
@@ -488,18 +494,46 @@ private actor SearchIndex {
         let content = document.content
 
         // Calculate context window around the term
-        let halfContext = contextLength / 2
-        let contextStart = max(0, termPosition - halfContext)
-        let contextEnd = min(content.count, termPosition + termLength + halfContext)
+        guard !content.isEmpty else { return "" }
 
-        guard contextStart < content.count, contextEnd > contextStart else {
+        let halfContext = max(1, contextLength / 2)
+
+        // Work in UTF16 space to align with token positions
+        let nsContent = content as NSString
+        let safeTermPosition = max(0, min(termPosition, nsContent.length))
+        let safeTermLength = max(1, min(termLength, nsContent.length - safeTermPosition))
+
+        let startOffset = max(0, safeTermPosition - halfContext)
+        let endOffset = min(nsContent.length, safeTermPosition + safeTermLength + halfContext)
+
+        guard startOffset < endOffset else { return "" }
+
+        let contextRange = NSRange(location: startOffset, length: endOffset - startOffset)
+        guard NSLocationInRange(contextRange.location, NSRange(location: 0, length: nsContent.length)) else {
             return ""
         }
 
-        let startIndex = content.index(content.startIndex, offsetBy: contextStart)
-        let endIndex = content.index(content.startIndex, offsetBy: contextEnd)
+        let substring = nsContent.substring(with: contextRange)
+        return substring.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
-        return String(content[startIndex..<endIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
+    private func extractMatchText(
+        document: DocumentModel,
+        termPosition: Int,
+        termLength: Int
+    ) -> String {
+        guard !document.content.isEmpty else { return "" }
+
+        let nsContent = document.content as NSString
+        let safePosition = max(0, min(termPosition, nsContent.length))
+        let safeLength = max(1, min(termLength, nsContent.length - safePosition))
+        let range = NSRange(location: safePosition, length: safeLength)
+
+        guard NSLocationInRange(range.location, NSRange(location: 0, length: nsContent.length)) else {
+            return ""
+        }
+
+        return nsContent.substring(with: range)
     }
 
     private func calculateRelevanceScore(

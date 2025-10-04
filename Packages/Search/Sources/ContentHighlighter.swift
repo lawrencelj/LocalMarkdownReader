@@ -382,15 +382,12 @@ extension ContentHighlighter {
     }
 
     /// Asynchronous highlighting for large content
-    @MainActor public func highlightMatchesAsync(
+    nonisolated public func highlightMatchesAsync(
         in content: NSAttributedString,
         query: String
     ) async -> NSAttributedString {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let result = self.highlightMatches(in: content, query: query)
-                continuation.resume(returning: result)
-            }
-        }
+        await Task {
+            self.highlightMatches(in: content, query: query)
+        }.value
     }
 }

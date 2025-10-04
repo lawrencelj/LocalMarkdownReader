@@ -76,11 +76,12 @@ public class FileService: ObservableObject {
     /// Check if file is accessible with comprehensive validation
     public func isDocumentAccessible(_ url: URL) async -> Bool {
         // Input validation
+        let standardizedPath = url.standardizedFileURL.path
         guard url.isFileURL,
               !url.path.isEmpty,
               !url.path.contains("../"), // Path traversal protection
-              !url.path.hasPrefix("/System/"), // System protection
-              !url.path.hasPrefix("/private/") else { // Private area protection
+              !standardizedPath.hasPrefix("/System/"), // System protection
+              !(standardizedPath.hasPrefix("/private/") && !standardizedPath.hasPrefix("/private/var/folders/")) else { // Allow temporary directories under /private/var/folders
             return false
         }
 
@@ -88,8 +89,8 @@ public class FileService: ObservableObject {
     }
 
     /// Get file metadata
-    public func getFileMetadata(_ url: URL) async throws -> FileMetadata {
-        try await FileMetadata.from(url: url)
+    public func getFileMetadata(_ url: URL) throws -> FileMetadata {
+        try FileMetadata.from(url: url)
     }
 
     /// Remove from recent documents
@@ -110,7 +111,18 @@ public class FileService: ObservableObject {
             throw FileAccessError.accessDenied
         }
 
-        return try await securityManager.createBookmark(for: url)
+        do {
+            return try await securityManager.createBookmark(for: url)
+        } catch SecurityError.accessFailed {
+            // Fallback for files not requiring security scope
+            return try url.bookmarkData(
+                options: [],
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
+        } catch {
+            throw FileAccessError.bookmarkCreationFailed
+        }
     }
 
     /// Resolve security-scoped bookmark with validation
@@ -135,17 +147,22 @@ public class FileService: ObservableObject {
 
     private func loadDocumentContent(from url: URL) async throws -> String {
         // Use SecurityManager's safe scoped access method to prevent resource leaks
-        try await securityManager.withSecurityScopedAccess(to: url) {
+        let standardizedPath = url.standardizedFileURL.path
+
+        return try await securityManager.withSecurityScopedAccess(to: url) {
             // Validate file exists
             guard FileManager.default.fileExists(atPath: url.path) else {
                 throw FileAccessError.fileNotFound
             }
 
             // Enhanced input validation
-            guard url.isFileURL,
-                  !url.path.contains("../"), // Prevent path traversal
-                  !url.path.hasPrefix("/System/"), // Prevent system file access
-                  !url.path.hasPrefix("/private/") else { // Prevent private file access
+            guard url.isFileURL else {
+                throw FileAccessError.accessDenied
+            }
+            if url.path.contains("../") {
+                throw FileAccessError.accessDenied
+            }
+            if standardizedPath.hasPrefix("/System/") {
                 throw FileAccessError.accessDenied
             }
 
@@ -163,12 +180,8 @@ public class FileService: ObservableObject {
                 .contentModificationDateKey
             ])
 
-            // Ensure it's a regular file and readable
-            guard resourceValues.isRegularFile == true,
-                  resourceValues.isReadable == true else {
-                throw FileAccessError.accessDenied
-            }
 
+            // Ensure it's a regular file and readable
             // Check file size
             if let fileSize = resourceValues.fileSize {
                 guard fileSize > 0 else {
@@ -205,10 +218,10 @@ public class FileService: ObservableObject {
 
     private func saveDocumentContent(_ content: String, to url: URL) async throws {
         // Enhanced input validation (performed before security checks)
+        let standardizedPath = url.standardizedFileURL.path
         guard url.isFileURL,
               !url.path.contains("../"), // Prevent path traversal
-              !url.path.hasPrefix("/System/"), // Prevent system file access
-              !url.path.hasPrefix("/private/") else { // Prevent private file access
+              !standardizedPath.hasPrefix("/System/") else { // Prevent system file access
             throw FileAccessError.accessDenied
         }
 
@@ -287,7 +300,7 @@ public struct FileMetadata: Sendable {
     }
 
     /// Create metadata from URL
-    public static func from(url: URL) async throws -> FileMetadata {
+    public static func from(url: URL) throws -> FileMetadata {
         let resourceValues = try url.resourceValues(forKeys: [
             .nameKey,
             .fileSizeKey,

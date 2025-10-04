@@ -38,7 +38,7 @@ extension Color {
         #if os(iOS)
         return Color(uiColor: UIColor.tertiarySystemBackground)
         #elseif os(macOS)
-        return Color(nsColor: NSColor.controlHighlightColor)
+        return Color(nsColor: NSColor.separatorColor)
         #endif
     }
 

@@ -117,6 +117,7 @@ public class AppStateCoordinator {
         await self.performanceMonitor.trackOperation("document_load") {
             self.documentState.isLoading = true
             self.documentState.parseError = nil
+            self.documentState.lastOpenedReference = reference
             self.searchState.results = []
             self.searchState.query = ""
 
@@ -161,9 +162,11 @@ public class AppStateCoordinator {
     }
 
     public func retryDocumentLoad() async {
-        guard let currentDocument = self.documentState.currentDocument else { return }
-
-        await self.loadDocument(currentDocument.reference)
+        if let currentDocument = self.documentState.currentDocument {
+            await self.loadDocument(currentDocument.reference)
+        } else if let lastReference = self.documentState.lastOpenedReference {
+            await self.loadDocument(lastReference)
+        }
     }
 
     /// Save document content with security-scoped access
@@ -177,6 +180,7 @@ public class AppStateCoordinator {
         documentState.documentMetadata = nil
         documentState.scrollPosition = 0
         documentState.parseError = nil
+        documentState.lastOpenedReference = nil
 
         searchState.query = ""
         searchState.results = []
@@ -244,6 +248,7 @@ public class AppStateCoordinator {
                 self.searchState.results = []
                 self.searchState.currentResultIndex = 0
                 self.searchState.isSearching = false
+                self.uiState.hasSearchResults = false
                 return
             }
 
@@ -265,6 +270,7 @@ public class AppStateCoordinator {
 
                 self.searchState.results = results
                 self.searchState.currentResultIndex = 0
+                self.uiState.hasSearchResults = !results.isEmpty
 
                 // Update document highlighting for current document
                 if let document = self.documentState.currentDocument {
@@ -277,6 +283,7 @@ public class AppStateCoordinator {
             } catch {
                 self.searchState.searchError = error
                 self.searchState.results = []
+                self.uiState.hasSearchResults = false
             }
 
             self.searchState.isSearching = false
@@ -662,6 +669,7 @@ public class DocumentState {
     public var scrollPosition: CGFloat = 0
     public var selectedRange: NSRange?
     public var zoomLevel: Double = 1.0
+    public var lastOpenedReference: DocumentReference?
 
     public init() {}
 }

@@ -1,10 +1,10 @@
 # SwiftMarkdownReader
 ## Enterprise Markdown Viewer for iOS and macOS
 
-[![CI/CD Pipeline](https://github.com/enterprise/SwiftMarkdownReader/workflows/CI/CD%20Pipeline/badge.svg)](https://github.com/enterprise/SwiftMarkdownReader/actions)]
-[![Swift 5.9+](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)]
-[![Platform](https://img.shields.io/badge/Platform-iOS%2017%20|%20macOS%2014-blue.svg)](https://developer.apple.com)]
-[![License](https://img.shields.io/badge/License-Enterprise-green.svg)](LICENSE)]
+[![CI/CD Pipeline](https://github.com/enterprise/SwiftMarkdownReader/workflows/CI/CD%20Pipeline/badge.svg)](https://github.com/enterprise/SwiftMarkdownReader/actions)
+[![Swift 5.9+](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
+[![Platform](https://img.shields.io/badge/Platform-iOS%2017%20|%20macOS%2014-blue.svg)](https://developer.apple.com)
+[![License](https://img.shields.io/badge/License-Enterprise-green.svg)](LICENSE)
 
 A high-performance, accessible markdown viewer designed for enterprise environments with cross-platform support for iOS and macOS.
 

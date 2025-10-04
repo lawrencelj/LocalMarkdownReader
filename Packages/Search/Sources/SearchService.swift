@@ -35,11 +35,9 @@ public class SearchService: ObservableObject {
     }
 
     /// Highlight search matches in content
-    @MainActor public func highlightMatches(_ content: NSAttributedString, query: String) async -> NSAttributedString {
-        await performanceMonitor.trackNonThrowingOperation("highlight_matches") {
-            let highlighter = ContentHighlighter()
-            return highlighter.highlightMatches(in: content, query: query)
-        }
+    nonisolated public func highlightMatches(_ content: NSAttributedString, query: String) -> NSAttributedString {
+        let highlighter = ContentHighlighter()
+        return highlighter.highlightMatches(in: content, query: query)
     }
 
     // MARK: - Extended Search Interface

@@ -253,7 +253,7 @@ final class SearchTests: XCTestCase {
         let content = NSAttributedString(string: "This is a test document with programming content.")
         let query = "programming"
 
-        let highlighted = await searchService.highlightMatches(content, query: query)
+        let highlighted = searchService.highlightMatches(content, query: query)
 
         XCTAssertNotEqual(highlighted, content)
         XCTAssertTrue(highlighted.string.contains("programming"))
@@ -264,7 +264,7 @@ final class SearchTests: XCTestCase {
         let content = NSAttributedString(string: "Programming is fun. I love programming.")
         let query = "programming"
 
-        let highlighted = await searchService.highlightMatches(content, query: query)
+        let highlighted = searchService.highlightMatches(content, query: query)
 
         // Should highlight both instances of "programming"
         XCTAssertNotEqual(highlighted, content)
@@ -361,7 +361,7 @@ final class SearchTests: XCTestCase {
         await searchService.indexDocument(document)
 
         let results = await searchService.searchContent("émojis")
-        XCTAssertTrue(results.isEmpty) // Should handle Unicode
+        XCTAssertFalse(results.isEmpty) // Unicode queries should return matches
     }
 
     // MARK: - Memory Optimization Tests
@@ -415,7 +415,7 @@ final class SearchTests: XCTestCase {
     func testPerformanceMonitorMemoryLimits() async throws {
         try await setupTestFixtures()
         // Get initial stats
-        let initialStats = await searchService.getSearchStatistics()
+        _ = await searchService.getSearchStatistics()
 
         // Perform multiple searches to trigger monitoring
         for i in 0..<25 {  // More than the 20-item limit

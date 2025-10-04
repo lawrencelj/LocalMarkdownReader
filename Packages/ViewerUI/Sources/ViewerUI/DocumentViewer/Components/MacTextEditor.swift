@@ -1,12 +1,14 @@
 #if os(macOS)
 import AppKit
 import SwiftUI
+import MarkdownCore
 
 /// AppKit-backed text editor that supports programmatic focus and editing.
 struct MacTextEditor: NSViewRepresentable {
     @Binding var text: String
     @Binding var isFocused: Bool
     var showLineNumbers: Bool = true
+    var syntaxErrors: [SyntaxError] = []
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -35,7 +37,9 @@ struct MacTextEditor: NSViewRepresentable {
         textView.drawsBackground = false
 
         // Add alternating line background view behind text
-        let backgroundView = AlternatingLineBackgroundView(textView: textView)
+        let backgroundView = AlternatingLineBackgroundView(textView: textView, syntaxErrors: syntaxErrors)
+        // Store reference in coordinator for updates
+        context.coordinator.backgroundView = backgroundView
         textView.enclosingScrollView?.contentView.addSubview(backgroundView, positioned: .below, relativeTo: textView)
         backgroundView.frame = textView.bounds
         backgroundView.autoresizingMask = [.width, .height]
@@ -61,7 +65,9 @@ struct MacTextEditor: NSViewRepresentable {
         if showLineNumbers {
             scrollView.hasVerticalRuler = true
             scrollView.rulersVisible = true
-            let rulerView = LineNumberRulerView(textView: textView)
+            let rulerView = LineNumberRulerView(textView: textView, syntaxErrors: syntaxErrors)
+            // Store reference in coordinator for updates
+            context.coordinator.rulerView = rulerView
             scrollView.verticalRulerView = rulerView
         }
 
@@ -78,6 +84,17 @@ struct MacTextEditor: NSViewRepresentable {
             textView.string = text
         }
 
+        // Update syntax errors in background view and ruler view
+        if let backgroundView = context.coordinator.backgroundView {
+            backgroundView.syntaxErrors = syntaxErrors
+            backgroundView.needsDisplay = true
+        }
+
+        if let rulerView = context.coordinator.rulerView {
+            rulerView.syntaxErrors = syntaxErrors
+            rulerView.needsDisplay = true
+        }
+
         if isFocused && scrollView.window?.firstResponder !== textView {
             DispatchQueue.main.async {
                 scrollView.window?.makeFirstResponder(textView)
@@ -87,6 +104,8 @@ struct MacTextEditor: NSViewRepresentable {
 
     final class Coordinator: NSObject, NSTextViewDelegate {
         private let parent: MacTextEditor
+        weak var backgroundView: AlternatingLineBackgroundView?
+        weak var rulerView: LineNumberRulerView?
 
         init(_ parent: MacTextEditor) {
             self.parent = parent
@@ -113,10 +132,12 @@ struct MacTextEditor: NSViewRepresentable {
 final class LineNumberRulerView: NSRulerView {
     private weak var textView: NSTextView?
     private var lineNumberFont: NSFont
+    var syntaxErrors: [SyntaxError]
 
-    init(textView: NSTextView) {
+    init(textView: NSTextView, syntaxErrors: [SyntaxError] = []) {
         self.textView = textView
         self.lineNumberFont = .monospacedSystemFont(ofSize: 10, weight: .regular)
+        self.syntaxErrors = syntaxErrors
 
         super.init(scrollView: textView.enclosingScrollView, orientation: .verticalRuler)
 
@@ -191,9 +212,13 @@ final class LineNumberRulerView: NSRulerView {
                 let yPosition = lineFragmentY + baselineOffset
 
                 let lineNumberString = "\(lineNumber)" as NSString
+
+                // Check if this line has a syntax error
+                let hasError = self.syntaxErrors.contains { $0.line == lineNumber }
+
                 let attributes: [NSAttributedString.Key: Any] = [
                     .font: self.lineNumberFont,
-                    .foregroundColor: NSColor.secondaryLabelColor
+                    .foregroundColor: hasError ? NSColor.systemRed : NSColor.secondaryLabelColor
                 ]
 
                 let size = lineNumberString.size(withAttributes: attributes)
@@ -216,9 +241,11 @@ final class LineNumberRulerView: NSRulerView {
 /// Custom view that draws alternating line backgrounds with 5-degree shade difference
 final class AlternatingLineBackgroundView: NSView {
     private weak var textView: NSTextView?
+    var syntaxErrors: [SyntaxError]
 
-    init(textView: NSTextView) {
+    init(textView: NSTextView, syntaxErrors: [SyntaxError] = []) {
         self.textView = textView
+        self.syntaxErrors = syntaxErrors
         super.init(frame: textView.bounds)
 
         // Register for text change notifications to redraw
@@ -277,9 +304,17 @@ final class AlternatingLineBackgroundView: NSView {
                     height: usedRect.height
                 )
 
-                // Alternating shade with 5-degree difference (0.014 opacity)
-                let opacity: CGFloat = lineNumber % 2 == 0 ? 0.03 : 0.044
-                NSColor.controlAccentColor.withAlphaComponent(opacity).setFill()
+                // Check if this line has a syntax error (line numbers are 1-based)
+                let hasError = self.syntaxErrors.contains { $0.line == lineNumber + 1 }
+
+                if hasError {
+                    // Red background for error lines (matching view mode)
+                    NSColor.systemRed.withAlphaComponent(0.25).setFill()
+                } else {
+                    // Alternating shade with 5-degree difference (0.014 opacity)
+                    let opacity: CGFloat = lineNumber % 2 == 0 ? 0.03 : 0.044
+                    NSColor.controlAccentColor.withAlphaComponent(opacity).setFill()
+                }
                 lineRect.fill()
 
                 lineNumber += 1

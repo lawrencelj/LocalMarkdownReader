@@ -189,7 +189,9 @@ public class ThemeManager {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.voiceOverEnabled = PlatformAccessibility.isVoiceOverRunning
+            Task { @MainActor in
+                self?.voiceOverEnabled = PlatformAccessibility.isVoiceOverRunning
+            }
         }
 
         NotificationCenter.default.addObserver(
@@ -197,7 +199,9 @@ public class ThemeManager {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.switchControlEnabled = PlatformAccessibility.isSwitchControlRunning
+            Task { @MainActor in
+                self?.switchControlEnabled = PlatformAccessibility.isSwitchControlRunning
+            }
         }
 
         NotificationCenter.default.addObserver(
@@ -205,7 +209,9 @@ public class ThemeManager {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.isReduceMotionEnabled = PlatformAccessibility.isReduceMotionEnabled
+            Task { @MainActor in
+                self?.isReduceMotionEnabled = PlatformAccessibility.isReduceMotionEnabled
+            }
         }
 
         // Initial values

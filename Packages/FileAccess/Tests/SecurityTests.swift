@@ -230,7 +230,7 @@ final class SecurityTests: XCTestCase {
         let picker = DocumentPicker()
 
         // Create a test configuration
-        let config = DocumentPicker.Configuration(
+        _ = DocumentPicker.Configuration(
             allowedFileTypes: ["md"],
             allowsMultipleSelection: false,
             canChooseDirectories: false

@@ -62,7 +62,7 @@ Improvement: 6 tests fixed
 **Fix Applied** (Lines 143-147):
 ```swift
 // Check for malformed links - only validate if it looks like a link attempt
-// Pattern: text followed by ] and then (
+// Pattern: text followed by \] and then \(
 if line.contains("](") && !hasValidLinkSyntax(line) {
     throw ValidationError.malformedLink(line: index + 1)
 }

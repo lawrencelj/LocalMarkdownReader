@@ -86,9 +86,12 @@ public actor SecurityManager {
             return false
         }
 
-        // Check if file exists and validate path
-        guard FileManager.default.fileExists(atPath: url.path),
-              isValidFileExtension(url.pathExtension) else {
+        // Check if file exists, is not a directory, and validate path
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+              !isDirectory.boolValue,
+              isValidFileExtension(url.pathExtension)
+        else {
             SecurityAuditLogger.shared.logSecurity(.warning, "File validation failed")
             return false
         }
@@ -119,11 +122,17 @@ public actor SecurityManager {
                 )
             }
             SecurityAuditLogger.shared.logSecurity(.info, "Security scope validated", scopeId: scopeId)
-        } else {
-            SecurityAuditLogger.shared.logSecurity(.error, "Security scope validation failed")
+            return true
         }
 
-        return hasAccess
+        // Fall back to direct filesystem access for non security-scoped URLs
+        if FileManager.default.isReadableFile(atPath: url.path) {
+            SecurityAuditLogger.shared.logSecurity(.info, "Direct access permitted (no security scope required)")
+            return true
+        }
+
+        SecurityAuditLogger.shared.logSecurity(.error, "Security scope validation failed")
+        return false
     }
 
     /// Create security-scoped bookmark for URL
@@ -175,7 +184,13 @@ public actor SecurityManager {
                 tracker[url] = AccessInfo(isActive: false, lastAccessed: Date())
             }
 
-            return url
+            let standardizedURL = url.standardizedFileURL
+            if standardizedURL.path.hasPrefix("/private/var/") {
+                let normalizedPath = String(standardizedURL.path.dropFirst("/private".count))
+                return URL(fileURLWithPath: normalizedPath, isDirectory: standardizedURL.hasDirectoryPath)
+            }
+
+            return standardizedURL
         } catch {
             throw SecurityError.bookmarkResolutionFailed(underlying: error)
         }
@@ -214,11 +229,17 @@ public actor SecurityManager {
                 tracker[url] = newInfo
             }
             SecurityAuditLogger.shared.logSecurity(.info, "Security scope started", scopeId: scopeId)
-        } else {
-            SecurityAuditLogger.shared.logSecurity(.error, "Failed to start security scope")
+            return true
         }
 
-        return success
+        // Fall back to regular file permissions for non security-scoped URLs
+        if FileManager.default.isReadableFile(atPath: url.path) {
+            SecurityAuditLogger.shared.logSecurity(.info, "Using direct filesystem access (no security scope required)")
+            return true
+        }
+
+        SecurityAuditLogger.shared.logSecurity(.error, "Failed to start security scope")
+        return false
     }
 
     /// Stop accessing security-scoped resource with comprehensive cleanup

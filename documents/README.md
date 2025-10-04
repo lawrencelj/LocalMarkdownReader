@@ -1,5 +1,5 @@
 # Documentation Index
-
+## Testing editlinerwe
 The documentation set is organized into purpose-driven folders after the October 2025 reorganization:
 
 - `architecture/` – Architecture decision records, integration guides, module specifications, and technical deep-dives.

@@ -91,6 +91,8 @@ final class DocumentViewerTests: XCTestCase {
         // Given
         let renderer = MarkdownRenderer(
             content: AttributedString("# Large Document\n" + String(repeating: "Content line\n", count: 1000)),
+            syntaxErrors: [],
+            showLineNumbers: coordinator.editorSettings.lineNumbers,
             viewportBounds: .constant(CGRect(x: 0, y: 0, width: 400, height: 600)),
             isOptimized: .constant(true)
         )
@@ -192,6 +194,8 @@ final class DocumentViewerTests: XCTestCase {
             let content = AttributedString(String(repeating: "Performance test content\n", count: 100))
             let renderer = MarkdownRenderer(
                 content: content,
+                syntaxErrors: [],
+                showLineNumbers: coordinator.editorSettings.lineNumbers,
                 viewportBounds: .constant(CGRect(x: 0, y: 0, width: 400, height: 600)),
                 isOptimized: .constant(true)
             )

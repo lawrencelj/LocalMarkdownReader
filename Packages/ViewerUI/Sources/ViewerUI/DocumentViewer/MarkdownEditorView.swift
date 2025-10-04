@@ -79,11 +79,17 @@ public struct MarkdownEditorView: View {
         .onChange(of: coordinator.uiState.isEditing) { _, isEditing in
             guard isEditing else { return }
             requestEditorFocus()
+            loadContent()
         }
         .onChange(of: editedContent) { oldValue, newValue in
-            // Sync editedContent to lines array
+            #if !os(macOS)
+            // Sync editedContent to lines array (only needed for non-macOS platforms)
             lines = newValue.components(separatedBy: .newlines)
+            #endif
             checkForUnsavedChanges()
+        }
+        .onChange(of: coordinator.documentState.currentDocument?.id) { _, _ in
+            loadContent()
         }
         .confirmationDialog(
             "Discard Changes",
@@ -115,21 +121,26 @@ public struct MarkdownEditorView: View {
     }
 
     private func loadContent() {
-        guard let document = coordinator.documentState.currentDocument else { return }
-
-        // Load the raw markdown content
-        do {
-            let url = document.reference.url
-
-            // Direct file read - NSOpenPanel already granted access
-            editedContent = try String(contentsOf: url, encoding: .utf8)
-
-            originalContent = editedContent
+        guard let document = coordinator.documentState.currentDocument else {
+            editedContent = ""
+            originalContent = ""
             hasUnsavedChanges = false
             coordinator.uiState.hasUnsavedChanges = false
-        } catch {
-            saveError = error
+#if !os(macOS)
+            lines = []
+#endif
+            return
         }
+
+        // Use the already loaded document content instead of re-reading from disk.
+        editedContent = document.content
+        originalContent = document.content
+        hasUnsavedChanges = false
+        coordinator.uiState.hasUnsavedChanges = false
+
+#if !os(macOS)
+        lines = editedContent.components(separatedBy: .newlines)
+#endif
     }
 
     private func checkForUnsavedChanges() {
@@ -176,6 +187,15 @@ public struct MarkdownEditorView: View {
 
     @ViewBuilder
     private var editorView: some View {
+        #if os(macOS)
+        MacTextEditor(
+            text: $editedContent,
+            isFocused: .constant(focusedField == .editor),
+            showLineNumbers: coordinator.editorSettings.lineNumbers,
+            syntaxErrors: coordinator.documentState.currentDocument?.syntaxErrors ?? []
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #else
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(lines.enumerated()), id: \.offset) { lineIndex, lineContent in
@@ -185,6 +205,7 @@ public struct MarkdownEditorView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #endif
     }
 
     @ViewBuilder
