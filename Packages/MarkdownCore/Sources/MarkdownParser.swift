@@ -61,8 +61,14 @@ public actor MarkdownParser {
     // MARK: - Main Parsing Interface
 
     /// Parse markdown content to DocumentModel
-    public func parseDocument(content: String, reference: DocumentReference) async throws -> DocumentModel {
+    public func parseDocument(content rawContent: String, reference: DocumentReference) async throws -> DocumentModel {
         return try await performanceMonitor.trackOperation("parse_document") {
+            // Normalize line endings up front so every stage (parser, renderer, editor,
+            // find, outline) sees LF-separated content. Besides keeping line/range math
+            // consistent, this avoids a swift-markdown crash: with block-directive parsing
+            // enabled, CRLF content containing HTML blocks (e.g. Excel-exported CSV with
+            // "<tag>" cells) trips an Index-out-of-range in RangeAdjuster.
+            let content = Self.normalizedLineEndings(rawContent)
             let format = DocumentFormat(url: reference.url)
 
             if format == .markdown || format == .plainText {
@@ -138,15 +144,24 @@ public actor MarkdownParser {
 
     // MARK: - Private Implementation
 
+    /// Converts CRLF and lone CR line endings to LF. Returns the input unchanged when
+    /// it contains no carriage returns (the common case), avoiding needless allocation.
+    private nonisolated static func normalizedLineEndings(_ text: String) -> String {
+        guard text.contains("\r") else { return text }
+        return text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+    }
+
     private nonisolated func buildParsingOptions() -> ParseOptions {
-        var options = ParseOptions()
-
-        if configuration.enableGitHubFlavoredMarkdown {
-            options.insert(.parseBlockDirectives)
-            options.insert(.parseSymbolLinks)
-        }
-
-        return options
+        // GitHub-Flavored Markdown (tables, strikethrough, task lists, autolinks) is
+        // enabled by default by swift-markdown's cmark-gfm backend, so no options are
+        // needed for it. We deliberately do NOT enable `.parseBlockDirectives` /
+        // `.parseSymbolLinks`: those are DocC-only features a reader doesn't use, and
+        // `.parseBlockDirectives` invokes swift-markdown's RangeAdjuster, which traps
+        // with "Index out of range" on some inputs containing HTML blocks (e.g. an
+        // Excel-exported CSV whose cells begin with "<tag>"). See LineEndingNormalizationTests.
+        return ParseOptions()
     }
 }
 
