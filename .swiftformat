@@ -1,0 +1,98 @@
+# SwiftFormat Configuration - Enterprise Swift Markdown Reader
+# Consistent code formatting across the development team
+
+# Format options
+--allman false
+--indent 4
+--maxwidth 120
+--tabwidth 4
+--assetliterals visual-width
+--commas always
+--semicolons never
+--ranges spaced
+--empty void
+--trailingclosures
+--trimwhitespace always
+--insertlines true
+--removelines true
+--linebreaks lf
+--elseposition same-line
+--guardelse same-line
+--closingparen balanced
+--wraptypealiases false
+--wraparguments before-first
+--wrapcollections before-first
+--closurevoid remove
+--voidtype void
+--redundanttype inferred-only
+--redundantmodifiers
+--redundantparens
+
+# Enabled rules
+--enable isEmpty
+--enable redundantSelf
+--enable redundantType
+--enable redundantParens
+--enable redundantReturn
+--enable redundantVoidReturnType
+--enable redundantNilInit
+--enable redundantLet
+--enable redundantPattern
+--enable redundantGet
+--enable redundantFileprivate
+--enable redundantRawValues
+--enable redundantInit
+--enable sortedImports
+--enable duplicateImports
+--enable unusedArguments
+--enable hoistPatternLet
+--enable wrapMultilineStatementBraces
+--enable blankLinesAtStartOfScope
+--enable blankLinesAtEndOfScope
+--enable blankLinesBetweenScopes
+--enable spaceAroundOperators
+--enable spaceInsideBrackets
+--enable spaceInsideParens
+--enable spaceAroundBrackets
+--enable spaceAroundParens
+--enable spaceAroundComments
+--enable consecutiveSpaces
+--enable trailingSpace
+--enable leadingDelimiters
+--enable wrapArguments
+--enable wrapCollections
+--enable closureVoid
+--enable voidType
+
+# Disabled rules
+--disable andOperator
+--disable assertionFailures
+--disable acronyms
+--disable blockComments
+
+# Specific configurations
+--funcattributes prev-line
+--typeattributes prev-line
+--varattributes prev-line
+--storedvarattrs same-line
+--computedvarattrs same-line
+--patternlet hoist
+--shortoptionals always
+--operatorfunc spaced
+--nevertrailing
+--stripunusedargs closure-only
+--imports testable-bottom
+--importgrouping testable-bottom
+--structthreshold 0
+--enumthreshold 0
+--classtreshold 0
+--extensionlength 0
+--typeblanklines remove
+--categorymark "MARK: %c"
+
+# File exclusions
+--exclude .build
+--exclude DerivedData
+--exclude Carthage
+--exclude vendor
+--exclude "**/*.generated.swift"

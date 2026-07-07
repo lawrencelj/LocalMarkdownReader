@@ -1,0 +1,309 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  release:
+    types: [ published ]
+
+env:
+  SWIFT_VERSION: '5.9'
+  XCODE_VERSION: '15.0'
+
+jobs:
+  # ============================================================================
+  # QUALITY GATES STAGE 1: Code Quality & Security
+  # ============================================================================
+
+  code-quality:
+    name: 🔍 Code Quality & Security
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v1
+        with:
+          swift-version: ${{ env.SWIFT_VERSION }}
+
+      - name: Cache Swift Dependencies
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-swift-${{ hashFiles('Package.swift', 'Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-swift-
+
+      - name: SwiftLint
+        run: |
+          if which swiftlint >/dev/null; then
+            swiftlint --strict --config .swiftlint.yml
+          else
+            echo "Installing SwiftLint..."
+            brew install swiftlint
+            swiftlint --strict --config .swiftlint.yml
+          fi
+
+      - name: SwiftFormat Check
+        run: |
+          if which swiftformat >/dev/null; then
+            swiftformat --lint .
+          else
+            echo "Installing SwiftFormat..."
+            brew install swiftformat
+            swiftformat --lint .
+          fi
+
+      - name: Security Scan - Dependencies
+        run: |
+          swift package show-dependencies --format json > dependencies.json
+          # TODO: Integrate with OWASP dependency check or similar security scanning
+
+      - name: Build for Analysis
+        run: swift build --configuration debug
+
+  # ============================================================================
+  # QUALITY GATES STAGE 2-3: Unit & Integration Tests
+  # ============================================================================
+
+  test-matrix:
+    name: 🧪 Test Suite
+    runs-on: macos-14
+    needs: code-quality
+    strategy:
+      matrix:
+        platform: [iOS, macOS]
+        configuration: [debug, release]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+
+      - name: Cache Swift Dependencies
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-swift-${{ matrix.platform }}-${{ matrix.configuration }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-swift-${{ matrix.platform }}-
+            ${{ runner.os }}-swift-
+
+      - name: Run Unit Tests
+        run: |
+          if [ "${{ matrix.platform }}" == "iOS" ]; then
+            swift test --configuration ${{ matrix.configuration }} \
+              --enable-code-coverage \
+              --parallel
+          else
+            swift test --configuration ${{ matrix.configuration }} \
+              --enable-code-coverage \
+              --parallel
+          fi
+
+      - name: Generate Coverage Report
+        run: |
+          xcrun llvm-cov export \
+            .build/${{ matrix.configuration }}/MarkdownReaderPackageTests.xctest/Contents/MacOS/MarkdownReaderPackageTests \
+            --format="lcov" \
+            --instr-profile .build/${{ matrix.configuration }}/codecov/default.profdata \
+            > coverage.lcov
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: coverage.lcov
+          flags: ${{ matrix.platform }}-${{ matrix.configuration }}
+          fail_ci_if_error: true
+
+  # ============================================================================
+  # QUALITY GATES STAGE 4-5: Performance & Accessibility
+  # ============================================================================
+
+  performance-test:
+    name: ⚡ Performance & Accessibility
+    runs-on: macos-14
+    needs: test-matrix
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+
+      - name: Build Release Configuration
+        run: swift build --configuration release
+
+      - name: Performance Benchmark Tests
+        run: |
+          echo "🎯 Running performance benchmarks..."
+          # TODO: Implement performance benchmarks
+          # - Document parsing speed (target: <100ms for 1MB documents)
+          # - Memory usage validation (target: <50MB typical usage)
+          # - Search performance (target: <100ms response time)
+
+      - name: Accessibility Validation
+        run: |
+          echo "♿ Running accessibility tests..."
+          # TODO: Implement automated accessibility testing
+          # - VoiceOver compatibility
+          # - Dynamic Type support
+          # - High contrast theme validation
+          # - WCAG 2.1 AA compliance
+
+  # ============================================================================
+  # QUALITY GATES STAGE 6-7: Build Artifacts & Documentation
+  # ============================================================================
+
+  build-artifacts:
+    name: 📦 Build & Package
+    runs-on: macos-14
+    needs: [test-matrix, performance-test]
+    strategy:
+      matrix:
+        platform: [iOS, macOS]
+        configuration: [debug, release]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+
+      - name: Setup Build Environment
+        run: |
+          # Import signing certificates for release builds
+          if [ "${{ matrix.configuration }}" == "release" ]; then
+            echo "🔐 Setting up code signing..."
+            # TODO: Configure code signing for App Store distribution
+          fi
+
+      - name: Build Application
+        run: |
+          if [ "${{ matrix.platform }}" == "iOS" ]; then
+            swift build --configuration ${{ matrix.configuration }} \
+              --product MarkdownReader-iOS
+          else
+            swift build --configuration ${{ matrix.configuration }} \
+              --product MarkdownReader-macOS
+          fi
+
+      - name: Create App Bundle
+        if: matrix.configuration == 'release'
+        run: |
+          echo "📱 Creating app bundle for ${{ matrix.platform }}..."
+          # TODO: Create proper .app bundles with Info.plist and resources
+
+      - name: Archive Build Artifacts
+        if: matrix.configuration == 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-${{ matrix.configuration }}-build
+          path: |
+            .build/${{ matrix.configuration }}/
+          retention-days: 30
+
+  # ============================================================================
+  # QUALITY GATES STAGE 8: Documentation Generation
+  # ============================================================================
+
+  documentation:
+    name: 📚 Documentation
+    runs-on: macos-14
+    needs: code-quality
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v1
+        with:
+          swift-version: ${{ env.SWIFT_VERSION }}
+
+      - name: Generate DocC Documentation
+        run: |
+          echo "📖 Generating DocC documentation..."
+          swift package --allow-writing-to-directory ./docs \
+            generate-documentation --target MarkdownCore \
+            --disable-indexing \
+            --transform-for-static-hosting \
+            --hosting-base-path SwiftMarkdownReader \
+            --output-path ./docs
+
+      - name: Deploy Documentation
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+
+  # ============================================================================
+  # DEPLOYMENT STAGE
+  # ============================================================================
+
+  deploy:
+    name: 🚀 Deploy
+    runs-on: macos-14
+    needs: [build-artifacts, documentation]
+    if: github.event_name == 'release'
+    strategy:
+      matrix:
+        platform: [iOS, macOS]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-release-build
+          path: ./artifacts
+
+      - name: Deploy to TestFlight
+        if: matrix.platform == 'iOS'
+        run: |
+          echo "🚀 Deploying iOS app to TestFlight..."
+          # TODO: Implement TestFlight deployment using fastlane
+
+      - name: Deploy macOS App
+        if: matrix.platform == 'macOS'
+        run: |
+          echo "🚀 Preparing macOS app for distribution..."
+          # TODO: Implement macOS app notarization and distribution
+
+  # ============================================================================
+  # QUALITY MONITORING
+  # ============================================================================
+
+  quality-monitoring:
+    name: 📊 Quality Metrics
+    runs-on: macos-14
+    needs: [build-artifacts, documentation]
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Collect Quality Metrics
+        run: |
+          echo "📊 Collecting quality metrics..."
+          # TODO: Implement quality metrics collection
+          # - Build time tracking
+          # - Test coverage analysis
+          # - Code quality trends
+          # - Security posture assessment
+
+      - name: Update Quality Dashboard
+        run: |
+          echo "📈 Updating quality dashboard..."
+          # TODO: Update quality dashboard with latest metrics

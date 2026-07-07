@@ -1,0 +1,232 @@
+# SwiftLint Configuration - Enterprise Swift Markdown Reader
+# Zero-warning policy for enterprise development
+
+# Included/Excluded paths
+included:
+  - Apps
+  - Packages
+  - Sources
+
+excluded:
+  - .build
+  - DerivedData
+  - Carthage
+  - vendor
+  - "**/*.generated.swift"
+
+# Analyzer rules (require compilation)
+analyzer_rules:
+  - explicit_self
+  - unused_import
+  - unused_declaration
+
+# Enabled rules
+opt_in_rules:
+  - anyobject_protocol
+  - array_init
+  - attributes
+  - closure_end_indentation
+  - closure_spacing
+  - collection_alignment
+  - conditional_returns_on_newline
+  - contains_over_filter_count
+  - contains_over_filter_is_empty
+  - contains_over_first_not_nil
+  - contains_over_range_nil_comparison
+  - discouraged_object_literal
+  - empty_collection_literal
+  - empty_count
+  - empty_string
+  - enum_case_associated_values_count
+  - explicit_init
+  - extension_access_modifier
+  - fallthrough
+  - fatal_error_message
+  - file_header
+  - file_name
+  - first_where
+  - flatmap_over_map_reduce
+  - force_unwrapping
+  - function_default_parameter_at_end
+  - identical_operands
+  - implicit_return
+  - joined_default_parameter
+  - last_where
+  - legacy_random
+  - literal_expression_end_indentation
+  - lower_acl_than_parent
+  - modifier_order
+  - multiline_arguments
+  - multiline_function_chains
+  - multiline_literal_brackets
+  - multiline_parameters
+  - multiline_parameters_brackets
+  - nimble_operator
+  - nslocalizedstring_key
+  - number_separator
+  - object_literal
+  - operator_usage_whitespace
+  - overridden_super_call
+  - override_in_extension
+  - pattern_matching_keywords
+  - prefer_self_type_over_type_of_self
+  - prefer_zero_over_explicit_init
+  - prefixed_toplevel_constant
+  - prohibited_interface_builder
+  - prohibited_super_call
+  - quick_discouraged_call
+  - quick_discouraged_focused_test
+  - quick_discouraged_pending_test
+  - raw_value_for_camel_cased_codable_enum
+  - reduce_into
+  - redundant_nil_coalescing
+  - redundant_type_annotation
+  - single_test_class
+  - sorted_first_last
+  - sorted_imports
+  - static_operator
+  - strong_iboutlet
+  - toggle_bool
+  - trailing_closure
+  - unneeded_parentheses_in_closure_argument
+  - unowned_variable_capture
+  - untyped_error_in_catch
+  - vertical_parameter_alignment_on_call
+  - vertical_whitespace_closing_braces
+  - vertical_whitespace_opening_braces
+  - xct_specific_matcher
+  - yoda_condition
+
+# Disabled rules
+disabled_rules:
+  - todo  # TODOs are acceptable during development
+
+# Rule configurations
+attributes:
+  always_on_same_line:
+    - "@IBAction"
+    - "@IBOutlet"
+    - "@NSManaged"
+    - "@objc"
+
+closure_body_length:
+  warning: 20
+  error: 100
+
+collection_alignment:
+  align_colons: true
+
+conditional_returns_on_newline:
+  if_only: true
+
+cyclomatic_complexity:
+  warning: 10
+  error: 20
+
+enum_case_associated_values_count:
+  warning: 5
+  error: 6
+
+file_header:
+  required_pattern: |
+                    \/\/
+                    \/\/ .*\.swift
+                    \/\/ SwiftMarkdownReader
+                    \/\/
+                    \/\/ Created by .* on \d{1,2}\/\d{1,2}\/\d{4}\.
+                    \/\/
+
+file_length:
+  warning: 400
+  error: 1000
+  ignore_comment_only_lines: true
+
+file_name:
+  excluded:
+    - main.swift
+    - LinuxMain.swift
+
+function_body_length:
+  warning: 60
+  error: 100
+
+function_parameter_count:
+  warning: 5
+  error: 8
+
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+  max_length:
+    warning: 40
+    error: 60
+  excluded:
+    - id
+    - db
+    - x
+    - y
+    - z
+
+large_tuple:
+  warning: 2
+  error: 3
+
+line_length:
+  warning: 120
+  error: 200
+  ignores_function_declarations: true
+  ignores_comments: true
+  ignores_urls: true
+
+multiline_arguments:
+  first_argument_location: next_line
+  only_enforce_after_first_closure_on_first_line: true
+
+multiline_parameters:
+  allows_single_line: true
+
+nesting:
+  type_level:
+    warning: 2
+    error: 3
+  statement_level:
+    warning: 5
+    error: 10
+
+number_separator:
+  minimum_length: 5
+
+private_over_fileprivate:
+  validate_extensions: true
+
+redundant_string_enum_value: {}
+
+sorted_imports:
+  grouped_imports: true
+
+trailing_whitespace:
+  ignores_empty_lines: true
+  ignores_comments: true
+
+type_body_length:
+  warning: 250
+  error: 350
+
+type_name:
+  min_length:
+    warning: 3
+    error: 2
+  max_length:
+    warning: 40
+    error: 50
+  excluded:
+    - ID
+
+untyped_error_in_catch:
+  {}
+
+vertical_whitespace:
+  max_empty_lines: 1
+
+warning_threshold: 0
