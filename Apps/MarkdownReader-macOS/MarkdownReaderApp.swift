@@ -1,17 +1,17 @@
-/// macOS Application Entry Point - Markdown Reader
-///
-/// Main entry point for the macOS Markdown Reader application.
-/// Implements platform-specific initialization, menu bar integration,
-/// window management, and macOS-specific features.
+// macOS Application Entry Point - Markdown Reader
+//
+// Main entry point for the macOS Markdown Reader application.
+// Implements platform-specific initialization, menu bar integration,
+// window management, and macOS-specific features.
 
-import SwiftUI
-import ViewerUI
-import MarkdownCore
+import AppKit
 import FileAccess
+import MarkdownCore
 import Search
 import Settings
-import AppKit
+import SwiftUI
 import UniformTypeIdentifiers
+import ViewerUI
 
 /// macOS Application Main Entry Point
 @main
@@ -62,8 +62,7 @@ struct MarkdownReaderApp: App {
 
     // MARK: - Menu Commands
 
-    @CommandsBuilder
-    private var macOSMenuCommands: some Commands {
+    @CommandsBuilder private var macOSMenuCommands: some Commands {
         // File menu commands
         CommandGroup(replacing: .newItem) {
             Button("New Markdown Document") {

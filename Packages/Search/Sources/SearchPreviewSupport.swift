@@ -1,15 +1,15 @@
-/// SearchPreviewSupport - Preview data for Search types
-///
-/// Provides preview instances of SearchResult and OutlineItem
-/// for SwiftUI previews and development.
+// SearchPreviewSupport - Preview data for Search types
+//
+// Provides preview instances of SearchResult and OutlineItem
+// for SwiftUI previews and development.
 
 import Foundation
 
 // MARK: - OutlineItem Preview Support
 
-extension OutlineItem {
+public extension OutlineItem {
     /// Preview level 1 heading
-    public static var previewLevel1: OutlineItem {
+    static var previewLevel1: OutlineItem {
         OutlineItem(
             level: 1,
             title: "Introduction",
@@ -23,7 +23,7 @@ extension OutlineItem {
     }
 
     /// Preview with specific level
-    public static func preview(level: Int) -> OutlineItem {
+    static func preview(level: Int) -> OutlineItem {
         OutlineItem(
             level: level,
             title: "Heading Level \(level)",
@@ -33,16 +33,16 @@ extension OutlineItem {
     }
 
     /// Word count for preview (computed from title)
-    public var wordCount: Int {
+    var wordCount: Int {
         title.components(separatedBy: .whitespaces).count * 50
     }
 }
 
 // MARK: - SearchResult Preview Support
 
-extension SearchResult {
+public extension SearchResult {
     /// Preview exact match result
-    public static var previewExact: SearchResult {
+    static var previewExact: SearchResult {
         SearchResult(
             documentId: UUID(),
             text: "markdown",
@@ -57,7 +57,7 @@ extension SearchResult {
     }
 
     /// Preview partial match result
-    public static var previewPartial: SearchResult {
+    static var previewPartial: SearchResult {
         SearchResult(
             documentId: UUID(),
             text: "mark",
@@ -72,7 +72,7 @@ extension SearchResult {
     }
 
     /// Preview fuzzy match result
-    public static var previewFuzzy: SearchResult {
+    static var previewFuzzy: SearchResult {
         SearchResult(
             documentId: UUID(),
             text: "formatting",
@@ -89,22 +89,22 @@ extension SearchResult {
     // MARK: - Properties for SearchResultView
 
     /// The matched text content
-    public var matchedText: String {
+    var matchedText: String {
         text
     }
 
     /// Surrounding context for display
-    public var surroundingContext: String {
+    var surroundingContext: String {
         context
     }
 
     /// Containing heading for context
-    public var containingHeading: String? {
+    var containingHeading: String? {
         headingContext
     }
 
     /// Match type for display categorization
-    public var matchTypeDisplay: SearchResultMatchType {
+    var matchTypeDisplay: SearchResultMatchType {
         switch matchType {
         case .heading: return .exactMatch
         case .content: return .partialMatch

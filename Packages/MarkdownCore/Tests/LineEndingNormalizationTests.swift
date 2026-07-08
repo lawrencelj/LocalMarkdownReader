@@ -1,15 +1,14 @@
-/// LineEndingNormalizationTests - Regression tests for CRLF handling in MarkdownParser
-///
-/// Covers the crash where opening a CRLF document containing HTML-block-like lines
-/// (e.g. an Excel-exported CSV whose cells begin with "<tag>") aborted with
-/// `Fatal error: Index out of range` inside swift-markdown's RangeAdjuster, and
-/// confirms line endings are normalized to LF in the stored document.
+// LineEndingNormalizationTests - Regression tests for CRLF handling in MarkdownParser
+//
+// Covers the crash where opening a CRLF document containing HTML-block-like lines
+// (e.g. an Excel-exported CSV whose cells begin with "<tag>") aborted with
+// `Fatal error: Index out of range` inside swift-markdown's RangeAdjuster, and
+// confirms line endings are normalized to LF in the stored document.
 
-import XCTest
 @testable import MarkdownCore
+import XCTest
 
 final class LineEndingNormalizationTests: XCTestCase {
-
     private func reference(ext: String) -> DocumentReference {
         DocumentReference(
             url: URL(fileURLWithPath: "/tmp/sample.\(ext)"),

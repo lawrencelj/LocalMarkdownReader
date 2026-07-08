@@ -2,6 +2,7 @@ import Foundation
 
 enum LaTeXDocumentProcessor {
     static func outline(from content: String) -> [HeadingItem] {
+        // swiftlint:disable:next line_length
         let pattern = #"\\(part|chapter|section|subsection|subsubsection|paragraph|subparagraph)\*?(?![A-Za-z@])(?:\s*\[[^\]]*\])?\s*\{"#
         guard let expression = try? NSRegularExpression(pattern: pattern) else { return [] }
 
@@ -35,7 +36,9 @@ enum LaTeXDocumentProcessor {
         return matches.map { section in
             let line = source.substring(to: section.range.location)
                 .reduce(into: 1) { count, character in
-                    if character == "\n" { count += 1 }
+                    if character == "\n" {
+                        count += 1
+                    }
                 }
 
             return HeadingItem(
@@ -108,13 +111,15 @@ enum LaTeXDocumentProcessor {
         var depth = 0
         var inComment = false
 
-        for index in openingBrace..<source.length {
+        for index in openingBrace ..< source.length {
             let character = source.character(at: index)
             if character == 10 || character == 13 {
                 inComment = false
                 continue
             }
-            if inComment { continue }
+            if inComment {
+                continue
+            }
             if character == 37 && !isEscaped(location: index, in: source) {
                 inComment = true
                 continue
@@ -140,8 +145,8 @@ enum LaTeXDocumentProcessor {
         let lineRange = source.lineRange(for: NSRange(location: location, length: 0))
         guard location > lineRange.location else { return false }
 
-        for index in lineRange.location..<location
-        where source.character(at: index) == 37 && !isEscaped(location: index, in: source) {
+        for index in lineRange.location ..< location
+            where source.character(at: index) == 37 && !isEscaped(location: index, in: source) {
             return true
         }
         return false
@@ -154,7 +159,9 @@ enum LaTeXDocumentProcessor {
 
         while source.character(at: index) == 92 {
             backslashCount += 1
-            if index == 0 { break }
+            if index == 0 {
+                break
+            }
             index -= 1
         }
         return backslashCount.isMultiple(of: 2) == false
@@ -186,9 +193,9 @@ enum LaTeXDocumentProcessor {
         let beginMarker = #"\begin{document}"#
         let endMarker = #"\end{document}"#
         let start = content.range(of: beginMarker).map { $0.upperBound } ?? content.startIndex
-        let end = content.range(of: endMarker, range: start..<content.endIndex)?.lowerBound
+        let end = content.range(of: endMarker, range: start ..< content.endIndex)?.lowerBound
             ?? content.endIndex
-        return String(content[start..<end])
+        return String(content[start ..< end])
     }
 
     private static func plainText(from source: String) -> String {

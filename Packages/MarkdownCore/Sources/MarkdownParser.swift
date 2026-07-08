@@ -1,8 +1,8 @@
-/// MarkdownParser - Core markdown parsing engine
-///
-/// High-performance markdown parser using swift-markdown with
-/// CommonMark compliance and GitHub Flavored Markdown extensions.
-/// Optimized for large documents with streaming and background processing.
+// MarkdownParser - Core markdown parsing engine
+//
+// High-performance markdown parser using swift-markdown with
+// CommonMark compliance and GitHub Flavored Markdown extensions.
+// Optimized for large documents with streaming and background processing.
 
 import Foundation
 import Markdown
@@ -54,15 +54,15 @@ public actor MarkdownParser {
 
     public init(configuration: Configuration = .default) {
         self.configuration = configuration
-        self.validator = ValidationEngine(configuration: configuration)
-        self.performanceMonitor = PerformanceMonitor.shared
+        validator = ValidationEngine(configuration: configuration)
+        performanceMonitor = PerformanceMonitor.shared
     }
 
     // MARK: - Main Parsing Interface
 
     /// Parse markdown content to DocumentModel
     public func parseDocument(content rawContent: String, reference: DocumentReference) async throws -> DocumentModel {
-        return try await performanceMonitor.trackOperation("parse_document") {
+        try await performanceMonitor.trackOperation("parse_document") {
             // Normalize line endings up front so every stage (parser, renderer, editor,
             // find, outline) sees LF-separated content. Besides keeping line/range math
             // consistent, this avoids a swift-markdown crash: with block-directive parsing
@@ -126,7 +126,7 @@ public actor MarkdownParser {
 
     /// Extract document outline (headings)
     public func extractOutline(from content: String) async throws -> [HeadingItem] {
-        return try await performanceMonitor.trackOperation("extract_outline") {
+        try await performanceMonitor.trackOperation("extract_outline") {
             let document = Document(parsing: content, options: buildParsingOptions())
             let extractor = ContentExtractor()
             return try await extractor.extractHeadings(from: document, content: content)
@@ -135,7 +135,7 @@ public actor MarkdownParser {
 
     /// Extract document metadata
     public func extractMetadata(from content: String, reference: DocumentReference) async throws -> DocumentMetadata {
-        return try await performanceMonitor.trackOperation("extract_metadata") {
+        try await performanceMonitor.trackOperation("extract_metadata") {
             let document = Document(parsing: content, options: buildParsingOptions())
             let extractor = ContentExtractor()
             return try await extractor.extractMetadata(from: document, content: content, reference: reference)
@@ -161,7 +161,7 @@ public actor MarkdownParser {
         // `.parseBlockDirectives` invokes swift-markdown's RangeAdjuster, which traps
         // with "Index out of range" on some inputs containing HTML blocks (e.g. an
         // Excel-exported CSV whose cells begin with "<tag>"). See LineEndingNormalizationTests.
-        return ParseOptions()
+        ParseOptions()
     }
 }
 
@@ -373,9 +373,11 @@ private struct AttributedStringRenderer {
 // MARK: - Platform Color Alias
 
 #if os(macOS)
-import AppKit
-private typealias PlatformColor = NSColor
+    import AppKit
+
+    private typealias PlatformColor = NSColor
 #else
-import UIKit
-private typealias PlatformColor = UIColor
+    import UIKit
+
+    private typealias PlatformColor = UIColor
 #endif

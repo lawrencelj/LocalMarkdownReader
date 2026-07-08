@@ -18,8 +18,8 @@ enum StructuredOutlineExtractor {
     private static func extractJSON(from content: String) -> [HeadingItem] {
         guard let data = content.data(using: .utf8),
               let value = try? JSONSerialization.jsonObject(
-                with: data,
-                options: [.fragmentsAllowed]
+                  with: data,
+                  options: [.fragmentsAllowed]
               ) else {
             return []
         }

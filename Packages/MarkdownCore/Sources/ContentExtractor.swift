@@ -1,7 +1,7 @@
-/// ContentExtractor - Metadata and outline extraction
-///
-/// Extracts metadata, outline, and structural information from
-/// markdown documents for navigation and analysis purposes.
+// ContentExtractor - Metadata and outline extraction
+//
+// Extracts metadata, outline, and structural information from
+// markdown documents for navigation and analysis purposes.
 
 import Foundation
 import Markdown
@@ -16,7 +16,12 @@ public struct ContentExtractor {
         let lineHeight: CGFloat = 20 // Approximate line height
 
         for markup in document.children {
-            let extractedHeadings = try await extractHeadingsRecursive(markup, lines: lines, currentPosition: &currentPosition, lineHeight: lineHeight)
+            let extractedHeadings = try await extractHeadingsRecursive(
+                markup,
+                lines: lines,
+                currentPosition: &currentPosition,
+                lineHeight: lineHeight
+            )
             headings.append(contentsOf: extractedHeadings)
         }
 
@@ -24,7 +29,11 @@ public struct ContentExtractor {
     }
 
     /// Extract comprehensive document metadata
-    public func extractMetadata(from document: Document, content: String, reference: DocumentReference) async throws -> DocumentMetadata {
+    public func extractMetadata(
+        from document: Document,
+        content: String,
+        reference: DocumentReference
+    ) async throws -> DocumentMetadata {
         let lines = content.components(separatedBy: .newlines)
         let words = content.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
 
@@ -91,7 +100,12 @@ public struct ContentExtractor {
 
         // Recursively process children
         for child in markup.children {
-            let childHeadings = try await extractHeadingsRecursive(child, lines: lines, currentPosition: &currentPosition, lineHeight: lineHeight)
+            let childHeadings = try await extractHeadingsRecursive(
+                child,
+                lines: lines,
+                currentPosition: &currentPosition,
+                lineHeight: lineHeight
+            )
             headings.append(contentsOf: childHeadings)
         }
 

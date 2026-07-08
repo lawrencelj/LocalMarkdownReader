@@ -1,14 +1,14 @@
-/// SearchInterface - Real-time search with highlighting and navigation
+// SearchInterface - Real-time search with highlighting and navigation
 
-import SwiftUI
-import Search
 import MarkdownCore
+import Search
+import SwiftUI
 
 /// Main search interface component with real-time filtering
 public struct SearchInterface: View {
     @Environment(AppStateCoordinator.self) private var coordinator
 
-    @State private var searchText: String = ""
+    @State private var searchText = ""
     @FocusState private var isSearchFocused: Bool
 
     public init() {}
@@ -59,8 +59,7 @@ public struct SearchInterface: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
-    @ViewBuilder
-    private var resultsContent: some View {
+    @ViewBuilder private var resultsContent: some View {
         if coordinator.searchState.isSearching {
             VStack(spacing: 12) {
                 ProgressView()
@@ -88,9 +87,8 @@ public struct SearchInterface: View {
                             SearchResultView(
                                 result: coordinator.searchState.results[index],
                                 index: index,
-                                isSelected: index == coordinator.searchState.currentResultIndex,
-                                onSelect: { selectResult(at: index) }
-                            )
+                                isSelected: index == coordinator.searchState.currentResultIndex
+                            ) { selectResult(at: index) }
                             if index < coordinator.searchState.results.count - 1 {
                                 Divider().padding(.leading, 44)
                             }

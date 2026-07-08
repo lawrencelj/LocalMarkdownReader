@@ -1,7 +1,7 @@
-/// SearchService - Main search service interface
-///
-/// Provides the primary interface for search operations expected by the
-/// frontend AppStateCoordinator, with <100ms response time optimization.
+// SearchService - Main search service interface
+//
+// Provides the primary interface for search operations expected by the
+// frontend AppStateCoordinator, with <100ms response time optimization.
 
 import Foundation
 import MarkdownCore
@@ -14,8 +14,8 @@ public class SearchService: ObservableObject {
     private let performanceMonitor: SearchPerformanceMonitor
 
     public init() {
-        self.searchEngine = SearchEngine()
-        self.performanceMonitor = SearchPerformanceMonitor.shared
+        searchEngine = SearchEngine()
+        performanceMonitor = SearchPerformanceMonitor.shared
     }
 
     // MARK: - Frontend Interface Methods
@@ -29,7 +29,7 @@ public class SearchService: ObservableObject {
 
     /// Search content with query
     public func searchContent(_ query: String) async -> [SearchResult] {
-        return await performanceMonitor.trackOperation("search_content") {
+        await performanceMonitor.trackOperation("search_content") {
             await searchEngine.search(query: query)
         }
     }
@@ -48,7 +48,7 @@ public class SearchService: ObservableObject {
         options: SearchOptions = SearchOptions(),
         in document: DocumentModel? = nil
     ) async throws -> [SearchResult] {
-        return try await searchEngine.advancedSearch(
+        try await searchEngine.advancedSearch(
             query: query,
             options: options,
             document: document
@@ -57,7 +57,7 @@ public class SearchService: ObservableObject {
 
     /// Generate document outline
     public func generateOutline(for document: DocumentModel) async throws -> [OutlineItem] {
-        return try await searchEngine.generateOutline(from: document)
+        try await searchEngine.generateOutline(from: document)
     }
 
     /// Clear search index
@@ -67,7 +67,7 @@ public class SearchService: ObservableObject {
 
     /// Get search statistics
     public func getSearchStatistics() async -> SearchStatistics {
-        return await searchEngine.getStatistics()
+        await searchEngine.getStatistics()
     }
 
     /// Update search index for document changes
@@ -154,7 +154,7 @@ public struct SearchResult: Sendable, Identifiable, Hashable {
         matchType: MatchType = .content,
         headingContext: String? = nil
     ) {
-        self.id = UUID()
+        id = UUID()
         self.documentId = documentId
         self.text = text
         self.context = context
@@ -178,11 +178,11 @@ public struct SearchResult: Sendable, Identifiable, Hashable {
 
 /// Type of search match
 public enum MatchType: String, Sendable, CaseIterable {
-    case heading = "heading"
-    case content = "content"
+    case heading
+    case content
     case codeBlock = "code"
-    case link = "link"
-    case emphasis = "emphasis"
+    case link
+    case emphasis
 }
 
 // MARK: - Outline Item
@@ -203,7 +203,7 @@ public struct OutlineItem: Sendable, Identifiable, Hashable {
         position: CGFloat = 0,
         children: [OutlineItem] = []
     ) {
-        self.id = UUID().uuidString
+        id = UUID().uuidString
         self.level = level
         self.title = title
         self.range = range
@@ -247,17 +247,17 @@ public struct SearchStatistics: Sendable {
 
 // MARK: - Preview Support
 
-extension SearchService {
+public extension SearchService {
     /// Create a preview service for development
-    public static var preview: SearchService {
-        return SearchService()
+    static var preview: SearchService {
+        SearchService()
     }
 }
 
-extension SearchResult {
+public extension SearchResult {
     /// Create preview search results
-    public static var previewResults: [SearchResult] {
-        return [
+    static var previewResults: [SearchResult] {
+        [
             SearchResult(
                 documentId: UUID(),
                 text: "Example search result",

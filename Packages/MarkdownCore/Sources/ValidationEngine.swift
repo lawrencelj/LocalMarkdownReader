@@ -1,7 +1,7 @@
-/// ValidationEngine - Security validation and input sanitization
-///
-/// Provides comprehensive security validation for markdown content,
-/// preventing XSS attacks, malicious content, and ensuring safe parsing.
+// ValidationEngine - Security validation and input sanitization
+//
+// Provides comprehensive security validation for markdown content,
+// preventing XSS attacks, malicious content, and ensuring safe parsing.
 
 import Foundation
 
@@ -153,10 +153,9 @@ public actor ValidationEngine {
             #"<embed"#
         ]
 
-        for pattern in dangerousPatterns {
-            if content.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil {
-                throw ValidationError.dangerousContent(pattern: pattern)
-            }
+        for pattern in dangerousPatterns
+            where content.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil {
+            throw ValidationError.dangerousContent(pattern: pattern)
         }
 
         // Validate HTML content if present
@@ -179,7 +178,11 @@ public actor ValidationEngine {
             // Extract tag name
             let tagPattern = #"</?(\w+)[^>]*>"#
             let tagRegex = try NSRegularExpression(pattern: tagPattern, options: .caseInsensitive)
-            let tagMatches = tagRegex.matches(in: htmlTag, options: [], range: NSRange(htmlTag.startIndex..., in: htmlTag))
+            let tagMatches = tagRegex.matches(
+                in: htmlTag,
+                options: [],
+                range: NSRange(htmlTag.startIndex..., in: htmlTag)
+            )
 
             if let tagMatch = tagMatches.first,
                let tagRange = Range(tagMatch.range(at: 1), in: htmlTag) {
@@ -292,19 +295,19 @@ public enum ValidationError: Error, LocalizedError, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .excessiveNesting(let level, let max):
+        case let .excessiveNesting(level, max):
             return "Excessive nesting level \(level) (maximum: \(max))"
-        case .malformedTable(let line):
+        case let .malformedTable(line):
             return "Malformed table syntax at line \(line)"
-        case .malformedLink(let line):
+        case let .malformedLink(line):
             return "Malformed link syntax at line \(line)"
-        case .dangerousContent(let pattern):
+        case let .dangerousContent(pattern):
             return "Dangerous content detected: \(pattern)"
-        case .blockedHTMLElement(let element):
+        case let .blockedHTMLElement(element):
             return "Blocked HTML element: <\(element)>"
-        case .invalidURL(let url):
+        case let .invalidURL(url):
             return "Invalid URL: \(url)"
-        case .disallowedProtocol(let scheme):
+        case let .disallowedProtocol(scheme):
             return "Disallowed protocol: \(scheme)"
         }
     }

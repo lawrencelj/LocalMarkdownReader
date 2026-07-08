@@ -1,16 +1,18 @@
-/// ContentHighlighter - Text highlighting for search results
-///
-/// Provides efficient text highlighting capabilities for search matches
-/// without disrupting layout performance.
+// ContentHighlighter - Text highlighting for search results
+//
+// Provides efficient text highlighting capabilities for search matches
+// without disrupting layout performance.
 
 import Foundation
 
 #if os(macOS)
-import AppKit
-public typealias PlatformColor = NSColor
+    import AppKit
+
+    public typealias PlatformColor = NSColor
 #else
-import UIKit
-public typealias PlatformColor = UIColor
+    import UIKit
+
+    public typealias PlatformColor = UIColor
 #endif
 
 /// Content highlighter for search results
@@ -101,7 +103,7 @@ public struct ContentHighlighter {
 
     /// Count matches in content
     public func countMatches(in content: String, query: String) -> Int {
-        return findMatches(in: content, query: query).count
+        findMatches(in: content, query: query).count
     }
 
     // MARK: - Advanced Highlighting
@@ -194,19 +196,23 @@ public struct ContentHighlighter {
 
         // Add subtle border effect (if supported)
         #if os(macOS)
-        if isCurrent {
-            content.addAttribute(.strokeWidth, value: 1.0, range: range)
-            content.addAttribute(.strokeColor, value: configuration.currentMatchColor.withAlphaComponent(0.8), range: range)
-        }
+            if isCurrent {
+                content.addAttribute(.strokeWidth, value: 1.0, range: range)
+                content.addAttribute(
+                    .strokeColor,
+                    value: configuration.currentMatchColor.withAlphaComponent(0.8),
+                    range: range
+                )
+            }
         #endif
     }
 }
 
 // MARK: - Highlighting Extensions
 
-extension ContentHighlighter {
+public extension ContentHighlighter {
     /// Create highlighted snippet for search preview
-    public func createHighlightedSnippet(
+    func createHighlightedSnippet(
         from content: String,
         query: String,
         contextLength: Int = 100
@@ -248,8 +254,8 @@ extension ContentHighlighter {
     }
 
     /// Apply highlighting to search result list
-    public func highlightSearchResults(_ results: [SearchResult], query: String) -> [HighlightedSearchResult] {
-        return results.map { result in
+    func highlightSearchResults(_ results: [SearchResult], query: String) -> [HighlightedSearchResult] {
+        results.map { result in
             let highlightedText = highlightMatches(
                 in: NSAttributedString(string: result.text),
                 query: query
@@ -283,7 +289,7 @@ public struct HighlightedSearchResult: Identifiable {
         highlightedText: NSAttributedString,
         highlightedContext: NSAttributedString
     ) {
-        self.id = result.id
+        id = result.id
         self.result = result
         self.highlightedText = highlightedText
         self.highlightedContext = highlightedContext
@@ -292,26 +298,26 @@ public struct HighlightedSearchResult: Identifiable {
 
 // MARK: - Performance Optimizations
 
-extension ContentHighlighter {
+public extension ContentHighlighter {
     /// Batch highlight multiple contents efficiently
-    public func batchHighlight(
+    func batchHighlight(
         contents: [(NSAttributedString, String)],
         configuration: Configuration? = nil
     ) -> [NSAttributedString] {
         let config = configuration ?? self.configuration
         let highlighter = ContentHighlighter(configuration: config)
 
-        return contents.map { (content, query) in
+        return contents.map { content, query in
             highlighter.highlightMatches(in: content, query: query)
         }
     }
 
     /// Asynchronous highlighting for large content
-    public func highlightMatchesAsync(
+    func highlightMatchesAsync(
         in content: NSAttributedString,
         query: String
     ) async -> NSAttributedString {
-        return await withCheckedContinuation { continuation in
+        await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 let result = self.highlightMatches(in: content, query: query)
                 continuation.resume(returning: result)

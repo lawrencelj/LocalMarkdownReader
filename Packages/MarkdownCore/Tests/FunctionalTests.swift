@@ -1,24 +1,23 @@
-/// FunctionalTests - Verifies all core functions work correctly
-///
-/// Tests document parsing, metadata extraction, outline generation,
-/// validation, and the document service pipeline.
+// FunctionalTests - Verifies all core functions work correctly
+//
+// Tests document parsing, metadata extraction, outline generation,
+// validation, and the document service pipeline.
 
-import XCTest
 @testable import MarkdownCore
+import XCTest
 
 @MainActor
 final class FunctionalTests: XCTestCase {
-
     // MARK: - Document Parsing
 
-    func testParseSimpleMarkdown() async throws {
+    func testParseSimpleMarkdown() throws {
         let parser = MarkdownParser()
         let content = "# Hello World\n\nThis is a paragraph."
         let result = try parser.parseToAttributedString(content)
         XCTAssertFalse(String(result.characters).isEmpty)
     }
 
-    func testParseHeadings() async throws {
+    func testParseHeadings() throws {
         let parser = MarkdownParser()
         let content = """
         # Heading 1
@@ -34,7 +33,7 @@ final class FunctionalTests: XCTestCase {
         XCTAssertTrue(text.contains("Heading 4"))
     }
 
-    func testParseBoldAndItalic() async throws {
+    func testParseBoldAndItalic() throws {
         let parser = MarkdownParser()
         let content = "This is **bold** and *italic* text."
         let result = try parser.parseToAttributedString(content)
@@ -43,7 +42,7 @@ final class FunctionalTests: XCTestCase {
         XCTAssertTrue(text.contains("italic"))
     }
 
-    func testParseCodeBlock() async throws {
+    func testParseCodeBlock() throws {
         let parser = MarkdownParser()
         let content = """
         ```swift
@@ -57,7 +56,7 @@ final class FunctionalTests: XCTestCase {
         XCTAssertTrue(text.contains("hello()"))
     }
 
-    func testParseLinks() async throws {
+    func testParseLinks() throws {
         let parser = MarkdownParser()
         let content = "Visit [Apple](https://apple.com) for more."
         let result = try parser.parseToAttributedString(content)
@@ -65,7 +64,7 @@ final class FunctionalTests: XCTestCase {
         XCTAssertTrue(text.contains("Apple"))
     }
 
-    func testParseLists() async throws {
+    func testParseLists() throws {
         let parser = MarkdownParser()
         let content = """
         - Item 1
@@ -78,7 +77,7 @@ final class FunctionalTests: XCTestCase {
         XCTAssertTrue(text.contains("Item 2"))
     }
 
-    func testParseOrderedList() async throws {
+    func testParseOrderedList() throws {
         let parser = MarkdownParser()
         let content = """
         1. First
@@ -91,7 +90,7 @@ final class FunctionalTests: XCTestCase {
         XCTAssertTrue(text.contains("Second"))
     }
 
-    func testParseBlockquote() async throws {
+    func testParseBlockquote() throws {
         let parser = MarkdownParser()
         let content = "> This is a quote"
         let result = try parser.parseToAttributedString(content)
@@ -99,7 +98,7 @@ final class FunctionalTests: XCTestCase {
         XCTAssertTrue(text.contains("This is a quote"))
     }
 
-    func testParseTable() async throws {
+    func testParseTable() throws {
         let parser = MarkdownParser()
         let content = """
         | Name | Age |
@@ -113,7 +112,7 @@ final class FunctionalTests: XCTestCase {
         XCTAssertFalse(text.isEmpty, "Table should produce some output")
     }
 
-    func testParseEmptyContent() async throws {
+    func testParseEmptyContent() throws {
         let parser = MarkdownParser()
         let result = try parser.parseToAttributedString("")
         XCTAssertTrue(String(result.characters).isEmpty)
@@ -237,7 +236,7 @@ final class FunctionalTests: XCTestCase {
 
     // MARK: - Validation
 
-    func testValidContentPasses() async throws {
+    func testValidContentPasses() throws {
         let parser = MarkdownParser()
         let content = "# Valid\n\nThis is valid markdown content."
         // Should not throw
@@ -309,7 +308,7 @@ final class FunctionalTests: XCTestCase {
         let service = DocumentService()
         // Generate a large document
         var content = "# Large Document\n\n"
-        for i in 1...100 {
+        for i in 1 ... 100 {
             content += "## Section \(i)\n\nThis is paragraph \(i) with some content to make it realistic. "
             content += "It contains multiple sentences and various markdown features.\n\n"
         }

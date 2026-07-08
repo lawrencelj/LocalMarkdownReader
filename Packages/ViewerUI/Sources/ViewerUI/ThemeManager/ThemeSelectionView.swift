@@ -1,4 +1,4 @@
-/// ThemeSelectionView - Theme selection interface
+// ThemeSelectionView - Theme selection interface
 
 import SwiftUI
 
@@ -7,9 +7,9 @@ public struct ThemeSelectionView: View {
     @Environment(\.themeManager) private var themeManager
 
     @State private var selectedTheme: Theme = .system
-    @State private var fontSizeSliderValue: Double = 1.0
-    @State private var lineSpacingValue: Double = 1.0
-    @State private var highContrastEnabled: Bool = false
+    @State private var fontSizeSliderValue = 1.0
+    @State private var lineSpacingValue = 1.0
+    @State private var highContrastEnabled = false
 
     public init() {}
 
@@ -46,7 +46,7 @@ public struct ThemeSelectionView: View {
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }
-                    Slider(value: $fontSizeSliderValue, in: 0.5...3.0, step: 0.1)
+                    Slider(value: $fontSizeSliderValue, in: 0.5 ... 3.0, step: 0.1)
                         .onChange(of: fontSizeSliderValue) { _, newValue in
                             themeManager.adjustFontSize(multiplier: newValue)
                         }
@@ -60,7 +60,7 @@ public struct ThemeSelectionView: View {
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }
-                    Slider(value: $lineSpacingValue, in: 0.8...2.0, step: 0.1)
+                    Slider(value: $lineSpacingValue, in: 0.8 ... 2.0, step: 0.1)
                         .onChange(of: lineSpacingValue) { _, newValue in
                             themeManager.adjustLineSpacing(multiplier: newValue)
                         }

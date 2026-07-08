@@ -1,15 +1,15 @@
-/// iOS Application Entry Point - Markdown Reader
-///
-/// Main entry point for the iOS Markdown Reader application.
-/// Implements platform-specific initialization, state coordination,
-/// and SwiftUI app lifecycle management.
+// iOS Application Entry Point - Markdown Reader
+//
+// Main entry point for the iOS Markdown Reader application.
+// Implements platform-specific initialization, state coordination,
+// and SwiftUI app lifecycle management.
 
-import SwiftUI
-import ViewerUI
-import MarkdownCore
 import FileAccess
+import MarkdownCore
 import Search
 import Settings
+import SwiftUI
+import ViewerUI
 
 /// iOS Application Main Entry Point
 @main

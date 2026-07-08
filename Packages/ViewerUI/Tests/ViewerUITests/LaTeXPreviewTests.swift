@@ -1,5 +1,5 @@
-import XCTest
 @testable import ViewerUI
+import XCTest
 
 final class LaTeXPreviewTests: XCTestCase {
     func testParserBuildsRenderedBlocks() {

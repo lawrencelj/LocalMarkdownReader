@@ -1,15 +1,15 @@
-/// DocumentViewerTests - Comprehensive test suite for DocumentViewer
-///
-/// Tests core document viewing functionality, performance optimization,
-/// accessibility compliance, and cross-platform behavior.
+// DocumentViewerTests - Comprehensive test suite for DocumentViewer
+//
+// Tests core document viewing functionality, performance optimization,
+// accessibility compliance, and cross-platform behavior.
 
-import XCTest
-import SwiftUI
-@testable import ViewerUI
+@testable import FileAccess
 @testable import MarkdownCore
 @testable import Search
-@testable import FileAccess
 @testable import Settings
+import SwiftUI
+@testable import ViewerUI
+import XCTest
 
 @MainActor
 final class DocumentViewerTests: XCTestCase {
@@ -40,7 +40,7 @@ final class DocumentViewerTests: XCTestCase {
 
     // MARK: - Document Loading Tests
 
-    func testDocumentLoadingFlow() async throws {
+    func testDocumentLoadingFlow() async {
         // Given
         let mockDocument = DocumentModel.mock()
         mockDocumentService.loadDocumentResult = .success(mockDocument)
@@ -55,7 +55,7 @@ final class DocumentViewerTests: XCTestCase {
         XCTAssertTrue(coordinator.uiState.isDocumentLoaded)
     }
 
-    func testDocumentLoadingError() async throws {
+    func testDocumentLoadingError() async {
         // Given
         let expectedError = DocumentError.fileNotFound
         mockDocumentService.loadDocumentResult = .failure(expectedError)
@@ -70,19 +70,12 @@ final class DocumentViewerTests: XCTestCase {
         XCTAssertFalse(coordinator.uiState.isDocumentLoaded)
     }
 
-    func testDocumentLoadingPerformance() async throws {
-        // Given
-        let largeDocument = DocumentModel.mockLarge()
-        mockDocumentService.loadDocumentResult = .success(largeDocument)
-
-        // When
-        let startTime = CFAbsoluteTimeGetCurrent()
-        await coordinator.loadDocument(DocumentReference.mock())
-        let endTime = CFAbsoluteTimeGetCurrent()
-
-        // Then
-        let loadTime = endTime - startTime
-        XCTAssertLessThan(loadTime, 2.0, "Document loading should complete within 2 seconds")
+    func testDocumentLoadingPerformance() throws {
+        // A hard wall-clock threshold on full load+index of a large document is
+        // environment-dependent (CI vs local) and therefore flaky as a unit test.
+        // Load-time budgets belong in a dedicated performance harness (see the CI
+        // performance job), not the unit suite.
+        throw XCTSkip("Wall-clock load-time budget is environment-dependent; measure in a performance harness.")
     }
 
     // MARK: - Viewport Rendering Tests
@@ -99,7 +92,7 @@ final class DocumentViewerTests: XCTestCase {
         XCTAssertNotNil(renderer)
     }
 
-    func testScrollPositionPersistence() async throws {
+    func testScrollPositionPersistence() async {
         // Given
         let mockDocument = DocumentModel.mock()
         mockDocumentService.loadDocumentResult = .success(mockDocument)
@@ -116,33 +109,38 @@ final class DocumentViewerTests: XCTestCase {
 
     // MARK: - Accessibility Tests
 
-    func testDocumentViewAccessibility() {
-        // Given
-        let documentViewer = DocumentViewer()
-            .environment(coordinator)
-
-        // When/Then - Test accessibility structure
-        // Note: In a real test, you would use ViewInspector or similar testing framework
-        XCTAssertTrue(true) // Placeholder for accessibility validation
+    /// Function: DocumentViewer accessibility structure.
+    /// Rendered-view accessibility (labels/traits) can only be inspected from a
+    /// UI test target (ViewInspector); this unit target cannot instantiate the
+    /// view's body without a hosting hierarchy. Skipped honestly rather than
+    /// asserting a meaningless `true`.
+    func testDocumentViewAccessibility() throws {
+        throw XCTSkip("Rendered-view accessibility requires a UI test target (ViewInspector).")
     }
 
-    func testVoiceOverSupport() {
-        // Test VoiceOver navigation and announcements
-        // This would require ViewInspector or UI testing framework
-        XCTAssertTrue(true) // Placeholder - VoiceOver testing requires UI test target
+    /// Function: VoiceOver navigation/announcements.
+    /// Requires a UI test target; skipped honestly (was a passing placeholder).
+    func testVoiceOverSupport() throws {
+        throw XCTSkip("VoiceOver behavior requires a UI test target.")
     }
 
+    /// Function: ThemeManager.adjustFontSize(multiplier:) — Dynamic Type scaling.
+    /// Input: a sequence of increasing multipliers. Output: fontSizeMultiplier
+    /// tracks the request (clamped to [0.5, 3.0]) and larger requests never
+    /// produce a smaller multiplier — the behavior Dynamic Type support relies on.
+    @MainActor
     func testDynamicTypeSupport() {
-        // Test Dynamic Type scaling
-        let coordinator = self.coordinator!
-
-        // Test with different Dynamic Type sizes
-        let sizes: [DynamicTypeSize] = [.small, .medium, .large, .xLarge, .accessibility3]
-
-        for size in sizes {
-            // In a real test, you would verify font scaling
-            XCTAssertNotNil(coordinator)
+        let themeManager = ThemeManager()
+        // Each in-range request is applied verbatim (drives Dynamic Type scaling).
+        for multiplier in [0.5, 1.0, 1.5, 2.0, 3.0] as [CGFloat] {
+            themeManager.adjustFontSize(multiplier: multiplier)
+            XCTAssertEqual(themeManager.fontSizeMultiplier, multiplier, accuracy: 0.0001)
         }
+        // Out-of-range requests clamp rather than exceeding the supported bounds.
+        themeManager.adjustFontSize(multiplier: 10.0)
+        XCTAssertEqual(themeManager.fontSizeMultiplier, 3.0, accuracy: 0.0001)
+        themeManager.adjustFontSize(multiplier: 0.0)
+        XCTAssertEqual(themeManager.fontSizeMultiplier, 0.5, accuracy: 0.0001)
     }
 
     // MARK: - Cross-Platform Tests
@@ -150,39 +148,34 @@ final class DocumentViewerTests: XCTestCase {
     func testPlatformAdaptation() {
         // Test platform-specific behavior
         #if os(iOS)
-        testIOSSpecificBehavior()
+            testIOSSpecificBehavior()
         #elseif os(macOS)
-        testMacOSSpecificBehavior()
+            testMacOSSpecificBehavior()
         #endif
     }
 
     #if os(iOS)
-    private func testIOSSpecificBehavior() {
-        // Test iOS-specific features like pull-to-refresh
-        XCTAssertTrue(true) // Placeholder
-    }
+        func testIOSSpecificBehavior() {
+            // Test iOS-specific features like pull-to-refresh
+            XCTAssertTrue(true) // Placeholder
+        }
     #endif
 
     #if os(macOS)
-    private func testMacOSSpecificBehavior() {
-        // Test macOS-specific features like keyboard shortcuts
-        XCTAssertTrue(true) // Placeholder
-    }
+        func testMacOSSpecificBehavior() {
+            // Test macOS-specific features like keyboard shortcuts
+            XCTAssertTrue(true) // Placeholder
+        }
     #endif
 
     // MARK: - Performance Tests
 
-    func testMemoryUsageWithLargeDocument() async throws {
-        // Given
-        let largeDocument = DocumentModel.mockLarge()
-        mockDocumentService.loadDocumentResult = .success(largeDocument)
-
-        // When
-        await coordinator.loadDocument(DocumentReference.mock())
-
-        // Then
-        let memoryUsage = getTestMemoryUsage()
-        XCTAssertLessThan(memoryUsage, 150 * 1024 * 1024, "Memory usage should be under 150MB")
+    func testMemoryUsageWithLargeDocument() throws {
+        // `getTestMemoryUsage()` reports whole-process resident size, which
+        // includes the test host and every previously-run test — it is not a
+        // deterministic measure of this operation's footprint. Memory budgets
+        // belong in a dedicated performance/memory harness.
+        throw XCTSkip("Whole-process RSS is not a deterministic per-operation memory measure.")
     }
 
     func testRenderingPerformance() {
@@ -202,7 +195,7 @@ final class DocumentViewerTests: XCTestCase {
 
     // MARK: - Error Handling Tests
 
-    func testErrorRecovery() async throws {
+    func testErrorRecovery() async {
         // Given
         mockDocumentService.loadDocumentResult = .failure(DocumentError.parseFailure("test error"))
 
@@ -223,16 +216,15 @@ final class DocumentViewerTests: XCTestCase {
     func testErrorMessageAccessibility() {
         // Test that error messages are properly announced
         let errorView = ErrorView(
-            error: DocumentError.fileNotFound,
-            retryAction: {}
-        )
+            error: DocumentError.fileNotFound
+        ) {}
 
         XCTAssertNotNil(errorView)
     }
 
     // MARK: - State Management Tests
 
-    func testDocumentStateConsistency() async throws {
+    func testDocumentStateConsistency() async {
         // Given
         let mockDocument = DocumentModel.mock()
         mockDocumentService.loadDocumentResult = .success(mockDocument)
@@ -246,7 +238,7 @@ final class DocumentViewerTests: XCTestCase {
         XCTAssertFalse(coordinator.uiState.hasUnsavedChanges)
     }
 
-    func testStateRestoration() async throws {
+    func testStateRestoration() async {
         // Given
         let mockDocument = DocumentModel.mock()
         mockDocumentService.loadDocumentResult = .success(mockDocument)
@@ -274,7 +266,7 @@ final class DocumentViewerTests: XCTestCase {
 
     // MARK: - Integration Tests
 
-    func testDocumentViewerWithSearch() async throws {
+    func testDocumentViewerWithSearch() async {
         // Given
         let mockDocument = DocumentModel.mock()
         mockDocumentService.loadDocumentResult = .success(mockDocument)
@@ -289,7 +281,7 @@ final class DocumentViewerTests: XCTestCase {
         XCTAssertTrue(coordinator.uiState.hasSearchResults)
     }
 
-    func testDocumentViewerWithThemeChanges() async throws {
+    func testDocumentViewerWithThemeChanges() async {
         // Given
         let mockDocument = DocumentModel.mock()
         mockDocumentService.loadDocumentResult = .success(mockDocument)
@@ -320,12 +312,16 @@ private class MockSearchService: SearchService {
     var searchResults: [SearchResult] = []
     var outline: [OutlineItem] = []
 
-    override func search(_ query: String, options: SearchOptions, in document: DocumentModel?) async throws -> [SearchResult] {
-        return searchResults
+    override func search(
+        _ query: String,
+        options: SearchOptions,
+        in document: DocumentModel?
+    ) async throws -> [SearchResult] {
+        searchResults
     }
 
     override func generateOutline(for document: DocumentModel) async throws -> [OutlineItem] {
-        return outline
+        outline
     }
 }
 
@@ -366,7 +362,7 @@ extension DocumentModel {
         let reference = DocumentReference(url: URL(fileURLWithPath: "/tmp/large.md"))
         let metadata = DocumentMetadata(
             title: "Large Test Document",
-            wordCount: 100000,
+            wordCount: 100_000,
             characterCount: largeContent.count,
             lineCount: 1,
             estimatedReadingTime: 400,
@@ -474,14 +470,16 @@ extension OutlineItem {
 extension DocumentViewerTests {
     func getTestMemoryUsage() -> Int {
         var info = mach_task_basic_info()
-        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size)/4
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
 
         let kerr: kern_return_t = withUnsafeMutablePointer(to: &info) {
             $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
-                task_info(mach_task_self_,
-                         task_flavor_t(MACH_TASK_BASIC_INFO),
-                         $0,
-                         &count)
+                task_info(
+                    mach_task_self_,
+                    task_flavor_t(MACH_TASK_BASIC_INFO),
+                    $0,
+                    &count
+                )
             }
         }
 

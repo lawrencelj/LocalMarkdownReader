@@ -1,14 +1,13 @@
-/// ContentFindHighlighter - Applies find highlights to a rendered `AttributedString`.
-///
-/// Used by the content pane, where markdown markers are stripped during rendering, so
-/// matches are found in the *displayed* text (the `AttributedString`'s characters) and the
-/// highlight background is applied to those ranges. Extracted from the view so the
-/// index-mapping logic can be unit-tested directly.
+// ContentFindHighlighter - Applies find highlights to a rendered `AttributedString`.
+//
+// Used by the content pane, where markdown markers are stripped during rendering, so
+// matches are found in the *displayed* text (the `AttributedString`'s characters) and the
+// highlight background is applied to those ranges. Extracted from the view so the
+// index-mapping logic can be unit-tested directly.
 
 import SwiftUI
 
 enum ContentFindHighlighter {
-
     /// Background for non-current matches.
     static let matchColor = Color.yellow.opacity(0.45)
     /// Background for the current match.
@@ -44,9 +43,9 @@ enum ContentFindHighlighter {
             let end = result.characters.index(start, offsetBy: length)
 
             let isCurrent = (occurrence == currentOccurrence)
-            result[start..<end].backgroundColor = isCurrent ? currentColor : matchColor
+            result[start ..< end].backgroundColor = isCurrent ? currentColor : matchColor
             if isCurrent {
-                result[start..<end].foregroundColor = Color.black
+                result[start ..< end].foregroundColor = Color.black
             }
         }
         return result

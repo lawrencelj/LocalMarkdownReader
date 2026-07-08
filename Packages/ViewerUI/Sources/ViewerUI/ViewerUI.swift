@@ -1,26 +1,26 @@
-/// ViewerUI - Enterprise SwiftUI Markdown Viewer Package
-///
-/// This package provides the complete user interface for the Swift Markdown Reader,
-/// implementing enterprise-grade SwiftUI components with cross-platform support,
-/// accessibility compliance, and performance optimization.
-///
-/// ## Architecture
-/// - SwiftUI-first design with 95% code sharing between iOS and macOS
-/// - @Observable state management with actor-based coordination
-/// - Performance-optimized viewport rendering for large documents
-/// - WCAG 2.1 AA accessibility compliance
-/// - Platform-adaptive UI patterns
-///
-/// ## Key Components
-/// - DocumentViewer: Main markdown content display with performance optimization
-/// - NavigationSidebar: TOC/outline navigation with collapsible sections
-/// - SearchInterface: Real-time search with highlighting and navigation
-/// - ThemeManager: Theme and accessibility settings management
-/// - SharedComponents: Reusable UI elements and platform adaptations
+// ViewerUI - Enterprise SwiftUI Markdown Viewer Package
+//
+// This package provides the complete user interface for the Swift Markdown Reader,
+// implementing enterprise-grade SwiftUI components with cross-platform support,
+// accessibility compliance, and performance optimization.
+//
+// ## Architecture
+// - SwiftUI-first design with 95% code sharing between iOS and macOS
+// - @Observable state management with actor-based coordination
+// - Performance-optimized viewport rendering for large documents
+// - WCAG 2.1 AA accessibility compliance
+// - Platform-adaptive UI patterns
+//
+// ## Key Components
+// - DocumentViewer: Main markdown content display with performance optimization
+// - NavigationSidebar: TOC/outline navigation with collapsible sections
+// - SearchInterface: Real-time search with highlighting and navigation
+// - ThemeManager: Theme and accessibility settings management
+// - SharedComponents: Reusable UI elements and platform adaptations
 
-import SwiftUI
 import MarkdownCore
 import Settings
+import SwiftUI
 
 // MARK: - Public API
 
@@ -47,19 +47,19 @@ public struct ViewerFeatures {
     /// Platform-specific feature availability
     public var platformFeatures: PlatformFeatures {
         #if os(macOS)
-        return PlatformFeatures(
-            keyboardShortcuts: true,
-            menuBarIntegration: true,
-            multiWindow: true,
-            touchBar: false
-        )
+            return PlatformFeatures(
+                keyboardShortcuts: true,
+                menuBarIntegration: true,
+                multiWindow: true,
+                touchBar: false
+            )
         #elseif os(iOS)
-        return PlatformFeatures(
-            keyboardShortcuts: false,
-            menuBarIntegration: false,
-            multiWindow: false,
-            touchBar: false
-        )
+            return PlatformFeatures(
+                keyboardShortcuts: false,
+                menuBarIntegration: false,
+                multiWindow: false,
+                touchBar: false
+            )
         #endif
     }
 }
@@ -78,9 +78,9 @@ public struct PlatformFeatures {
 private struct PlatformKey: EnvironmentKey {
     static let defaultValue: Platform = {
         #if os(iOS)
-        return .iOS
+            return .iOS
         #elseif os(macOS)
-        return .macOS
+            return .macOS
         #endif
     }()
 }
@@ -99,9 +99,9 @@ public enum Platform {
     }
 }
 
-extension EnvironmentValues {
+public extension EnvironmentValues {
     /// Current platform environment value
-    public var platform: Platform {
+    var platform: Platform {
         get { self[PlatformKey.self] }
         set { self[PlatformKey.self] = newValue }
     }
@@ -109,31 +109,31 @@ extension EnvironmentValues {
 
 // MARK: - Public View Modifiers
 
-extension View {
+public extension View {
     /// Apply platform-conditional modifications
     @ViewBuilder
-    public func platformConditional<Content: View>(
+    func platformConditional<Content: View>(
         _ targetPlatform: Platform,
         @ViewBuilder transform: (Self) -> Content
     ) -> some View {
         #if os(iOS)
-        if targetPlatform == .iOS {
-            transform(self)
-        } else {
-            self
-        }
+            if targetPlatform == .iOS {
+                transform(self)
+            } else {
+                self
+            }
         #elseif os(macOS)
-        if targetPlatform == .macOS {
-            transform(self)
-        } else {
-            self
-        }
+            if targetPlatform == .macOS {
+                transform(self)
+            } else {
+                self
+            }
         #endif
     }
 
     /// Apply conditional view modifications
     @ViewBuilder
-    public func conditional<Content: View>(
+    func conditional<Content: View>(
         _ condition: Bool,
         @ViewBuilder transform: (Self) -> Content
     ) -> some View {

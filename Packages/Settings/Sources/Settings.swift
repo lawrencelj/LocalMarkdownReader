@@ -1,12 +1,12 @@
-/// Settings - Configuration and preferences management
-///
-/// Provides comprehensive settings management with privacy-by-design,
-/// iCloud sync capabilities, and feature toggle support.
+// Settings - Configuration and preferences management
+//
+// Provides comprehensive settings management with privacy-by-design,
+// iCloud sync capabilities, and feature toggle support.
 
 // Re-export public interfaces
 @_exported import Foundation
 
-public struct Settings {
+public enum Settings {
     /// Library version
     public static let version = "1.0.0"
 

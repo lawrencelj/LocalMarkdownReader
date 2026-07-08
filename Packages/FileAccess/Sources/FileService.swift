@@ -1,14 +1,14 @@
-/// FileService - Main file access service interface
-///
-/// Provides the primary interface for file operations expected by the
-/// frontend AppStateCoordinator, with security-scoped access and
-/// cross-platform compatibility.
+// FileService - Main file access service interface
+//
+// Provides the primary interface for file operations expected by the
+// frontend AppStateCoordinator, with security-scoped access and
+// cross-platform compatibility.
 
 import Foundation
 #if os(macOS)
-import AppKit
+    import AppKit
 #else
-import UIKit
+    import UIKit
 #endif
 
 /// Main file service interface expected by frontend
@@ -19,26 +19,26 @@ public class FileService: ObservableObject {
     private let securityManager: SecurityManager
 
     public init() {
-        self.documentPicker = DocumentPicker()
-        self.recentDocuments = RecentDocuments()
-        self.securityManager = SecurityManager.shared
+        documentPicker = DocumentPicker()
+        recentDocuments = RecentDocuments()
+        securityManager = SecurityManager.shared
     }
 
     // MARK: - Frontend Interface Methods
 
     /// Present document picker and return selected document URL
     public func openDocument() async throws -> URL {
-        return try await documentPicker.selectDocument()
+        try await documentPicker.selectDocument()
     }
 
     /// Load document content from URL
     public func loadDocument(from url: URL) async throws -> String {
-        return try await loadDocumentContent(from: url)
+        try await loadDocumentContent(from: url)
     }
 
     /// Get list of recent documents
     public func getRecentDocuments() -> [URL] {
-        return recentDocuments.getRecentDocuments()
+        recentDocuments.getRecentDocuments()
     }
 
     /// Save document to recent documents list
@@ -50,12 +50,12 @@ public class FileService: ObservableObject {
 
     /// Check if file is accessible
     public func isDocumentAccessible(_ url: URL) async -> Bool {
-        return await securityManager.canAccessFile(url)
+        await securityManager.canAccessFile(url)
     }
 
     /// Get file metadata
     public func getFileMetadata(_ url: URL) async throws -> FileMetadata {
-        return try await FileMetadata.from(url: url)
+        try await FileMetadata.from(url: url)
     }
 
     /// Remove from recent documents
@@ -70,12 +70,12 @@ public class FileService: ObservableObject {
 
     /// Create security-scoped bookmark for file
     public func createBookmark(for url: URL) async throws -> Data {
-        return try await securityManager.createBookmark(for: url)
+        try await securityManager.createBookmark(for: url)
     }
 
     /// Resolve security-scoped bookmark
     public func resolveBookmark(_ bookmark: Data) async throws -> URL {
-        return try await securityManager.resolveBookmark(bookmark)
+        try await securityManager.resolveBookmark(bookmark)
     }
 
     // MARK: - Private Implementation
@@ -108,8 +108,7 @@ public class FileService: ObservableObject {
 
         // Read file content
         do {
-            let content = try String(contentsOf: url, encoding: .utf8)
-            return content
+            return try String(contentsOf: url, encoding: .utf8)
         } catch let error as NSError {
             throw FileAccessError.readFailed(underlying: error)
         }
@@ -170,7 +169,7 @@ public struct FileMetadata: Sendable {
 }
 
 /// File access configuration
-public struct FileAccessConfiguration {
+public enum FileAccessConfiguration {
     /// Maximum file size in bytes (2MB)
     public static let maxFileSize: Int64 = 2 * 1024 * 1024
 
@@ -201,11 +200,11 @@ public enum FileAccessError: Error, LocalizedError, Sendable {
             return "The requested file could not be found"
         case .accessDenied:
             return "Access to the file was denied"
-        case .fileTooLarge(let maxSize):
+        case let .fileTooLarge(maxSize):
             return "File is too large (maximum size: \(ByteCountFormatter().string(fromByteCount: maxSize)))"
         case .unsupportedFileType:
             return "The file type is not supported"
-        case .readFailed(let underlying):
+        case let .readFailed(underlying):
             return "Failed to read file: \(underlying.localizedDescription)"
         case .bookmarkCreationFailed:
             return "Failed to create security-scoped bookmark"
@@ -219,9 +218,9 @@ public enum FileAccessError: Error, LocalizedError, Sendable {
 
 // MARK: - Preview Support
 
-extension FileService {
+public extension FileService {
     /// Create a preview service for development
-    public static var preview: FileService {
-        return FileService()
+    static var preview: FileService {
+        FileService()
     }
 }

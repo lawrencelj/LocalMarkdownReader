@@ -1,10 +1,10 @@
-/// SettingsTests - Unit tests for Settings package
-///
-/// Comprehensive test suite covering preferences management,
-/// persistence, validation, and iCloud synchronization.
+// SettingsTests - Unit tests for Settings package
+//
+// Comprehensive test suite covering preferences management,
+// persistence, validation, and iCloud synchronization.
 
-import XCTest
 @testable import Settings
+import XCTest
 
 @MainActor
 final class SettingsTests: XCTestCase {
@@ -300,7 +300,7 @@ final class SettingsTests: XCTestCase {
         // Export settings
         let exportData = try preferencesService.exportSettings()
 
-        XCTAssertTrue(exportData.count > 0)
+        XCTAssertTrue(!exportData.isEmpty)
 
         // Verify we can decode the exported data
         let decoded = try JSONSerialization.jsonObject(with: exportData) as? [String: Any]
@@ -396,7 +396,6 @@ final class SettingsTests: XCTestCase {
 
 extension SettingsTests {
     func createTestUserDefaults() -> UserDefaults {
-        let defaults = UserDefaults(suiteName: "MarkdownReaderTests-\(UUID().uuidString)")!
-        return defaults
+        UserDefaults(suiteName: "MarkdownReaderTests-\(UUID().uuidString)")!
     }
 }

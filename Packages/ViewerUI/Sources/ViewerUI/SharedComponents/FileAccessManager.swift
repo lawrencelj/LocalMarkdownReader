@@ -1,18 +1,18 @@
-/// FileAccessManager - Cross-platform file access coordination
+// FileAccessManager - Cross-platform file access coordination
 
-import SwiftUI
 import FileAccess
+import SwiftUI
 
 /// Cross-platform file access manager for the application layer
 @MainActor
 @Observable
 public class FileAccessManager: ObservableObject {
-    public var hasFileAccess: Bool = false
+    public var hasFileAccess = false
 
     private let fileService: FileService
 
     public init() {
-        self.fileService = FileService()
+        fileService = FileService()
     }
 
     public func requestPermissionsIfNeeded() async {
@@ -25,15 +25,15 @@ public class FileAccessManager: ObservableObject {
     }
 
     public func openDocument() async throws -> URL {
-        return try await fileService.openDocument()
+        try await fileService.openDocument()
     }
 
     public func loadContent(from url: URL) async throws -> String {
-        return try await fileService.loadDocument(from: url)
+        try await fileService.loadDocument(from: url)
     }
 
     public func isAccessible(_ url: URL) async -> Bool {
-        return await fileService.isDocumentAccessible(url)
+        await fileService.isDocumentAccessible(url)
     }
 }
 
@@ -43,8 +43,8 @@ private struct FileAccessManagerKey: EnvironmentKey {
     @MainActor static let defaultValue = FileAccessManager()
 }
 
-extension EnvironmentValues {
-    public var fileAccessManager: FileAccessManager {
+public extension EnvironmentValues {
+    var fileAccessManager: FileAccessManager {
         get { self[FileAccessManagerKey.self] }
         set { self[FileAccessManagerKey.self] = newValue }
     }

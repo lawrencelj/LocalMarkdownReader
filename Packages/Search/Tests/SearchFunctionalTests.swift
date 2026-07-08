@@ -1,12 +1,11 @@
-/// SearchFunctionalTests - Verifies all search functions work correctly
+// SearchFunctionalTests - Verifies all search functions work correctly
 
-import XCTest
-@testable import Search
 @testable import MarkdownCore
+@testable import Search
+import XCTest
 
 @MainActor
 final class SearchFunctionalTests: XCTestCase {
-
     var searchService: SearchService!
     var testDocument: DocumentModel!
 
@@ -56,7 +55,7 @@ final class SearchFunctionalTests: XCTestCase {
 
     // MARK: - Indexing
 
-    func testIndexDocument() async throws {
+    func testIndexDocument() async {
         await searchService.indexDocument(testDocument)
         let stats = await searchService.getSearchStatistics()
         XCTAssertEqual(stats.documentsIndexed, 1)
@@ -89,7 +88,7 @@ final class SearchFunctionalTests: XCTestCase {
         XCTAssertEqual(results.count, 0, "Should not find nonexistent term")
     }
 
-    func testSearchEmptyQuery() async throws {
+    func testSearchEmptyQuery() async {
         await searchService.indexDocument(testDocument)
         let results = await searchService.searchContent("")
         XCTAssertEqual(results.count, 0, "Empty query should return no results")
@@ -123,7 +122,7 @@ final class SearchFunctionalTests: XCTestCase {
         XCTAssertGreaterThan(outline.count, 0, "Should generate outline from headings")
 
         // Check first heading
-        let firstItem = outline.first!
+        let firstItem = try XCTUnwrap(outline.first)
         XCTAssertEqual(firstItem.level, 1)
         XCTAssertEqual(firstItem.title, "Swift Programming Guide")
     }
@@ -176,7 +175,7 @@ final class SearchFunctionalTests: XCTestCase {
 
     // MARK: - Index Management
 
-    func testUpdateDocumentIndex() async throws {
+    func testUpdateDocumentIndex() async {
         await searchService.indexDocument(testDocument)
 
         let stats1 = await searchService.getSearchStatistics()
@@ -189,7 +188,7 @@ final class SearchFunctionalTests: XCTestCase {
         XCTAssertEqual(stats2.documentsIndexed, 1)
     }
 
-    func testRemoveFromIndex() async throws {
+    func testRemoveFromIndex() async {
         await searchService.indexDocument(testDocument)
         await searchService.removeFromIndex(testDocument.id)
 
@@ -197,7 +196,7 @@ final class SearchFunctionalTests: XCTestCase {
         XCTAssertEqual(stats.documentsIndexed, 0)
     }
 
-    func testClearIndex() async throws {
+    func testClearIndex() async {
         await searchService.indexDocument(testDocument)
         await searchService.clearIndex()
 
@@ -207,7 +206,7 @@ final class SearchFunctionalTests: XCTestCase {
 
     // MARK: - Content Highlighting
 
-    func testHighlightMatches() async throws {
+    func testHighlightMatches() {
         let content = NSAttributedString(string: "Hello Swift World")
         let highlighted = searchService.highlightMatches(content, query: "Swift")
 
@@ -222,7 +221,7 @@ final class SearchFunctionalTests: XCTestCase {
         await searchService.indexDocument(testDocument)
 
         let startTime = CFAbsoluteTimeGetCurrent()
-        for _ in 0..<100 {
+        for _ in 0 ..< 100 {
             _ = try await searchService.search("Swift")
         }
         let duration = CFAbsoluteTimeGetCurrent() - startTime

@@ -1,14 +1,14 @@
-/// AppStateCoordinator - Central state management coordination
-///
-/// Implements the Observable state management pattern from ADR-005,
-/// coordinating between DocumentState, SearchState, UIState, and UserPreferences
-/// with actor-based thread safety and performance optimization.
+// AppStateCoordinator - Central state management coordination
+//
+// Implements the Observable state management pattern from ADR-005,
+// coordinating between DocumentState, SearchState, UIState, and UserPreferences
+// with actor-based thread safety and performance optimization.
 
-import SwiftUI
+import FileAccess
 import MarkdownCore
 import Search
 import Settings
-import FileAccess
+import SwiftUI
 
 /// Central application state coordinator implementing ADR-005 architecture
 @MainActor
@@ -125,12 +125,19 @@ public class AppStateCoordinator {
         }
     }
 
+    /// The most recent reference passed to `loadDocument`, retained so retry /
+    /// refresh can recover even when the previous load failed (leaving no
+    /// `currentDocument` to derive the reference from).
+    private var lastRequestedReference: DocumentReference?
+
     public func loadDocument(_ reference: DocumentReference) async {
+        lastRequestedReference = reference
         await performanceMonitor.trackOperation("document_load") {
             documentState.isLoading = true
             documentState.parseError = nil
             searchState.results = []
             searchState.query = ""
+            uiState.hasSearchResults = false
 
             do {
                 let document = try await documentService.loadDocument(reference)
@@ -164,7 +171,6 @@ public class AppStateCoordinator {
                 // Update UI state
                 uiState.isDocumentLoaded = true
                 uiState.hasUnsavedChanges = false
-
             } catch {
                 documentState.parseError = error
                 uiState.isDocumentLoaded = false
@@ -175,15 +181,19 @@ public class AppStateCoordinator {
     }
 
     public func refreshDocument() async {
-        guard let currentDocument = documentState.currentDocument else { return }
+        // Prefer the loaded document's reference; fall back to the last requested
+        // one so refresh still works after a failed load.
+        guard let reference = documentState.currentDocument?.reference ?? lastRequestedReference else { return }
 
-        await loadDocument(currentDocument.reference)
+        await loadDocument(reference)
     }
 
     public func retryDocumentLoad() async {
-        guard let currentDocument = documentState.currentDocument else { return }
+        // Retry the last load attempt — which may have failed, in which case
+        // there is no currentDocument to fall back on.
+        guard let reference = lastRequestedReference ?? documentState.currentDocument?.reference else { return }
 
-        await loadDocument(currentDocument.reference)
+        await loadDocument(reference)
     }
 
     public func closeDocument() {
@@ -203,7 +213,10 @@ public class AppStateCoordinator {
             if documentState.openDocuments.isEmpty {
                 documentState.activeDocumentIndex = 0
             } else {
-                documentState.activeDocumentIndex = min(documentState.activeDocumentIndex, documentState.openDocuments.count - 1)
+                documentState.activeDocumentIndex = min(
+                    documentState.activeDocumentIndex,
+                    documentState.openDocuments.count - 1
+                )
                 let doc = documentState.openDocuments[documentState.activeDocumentIndex]
                 documentState.currentDocument = doc
                 documentState.documentContent = doc.attributedContent
@@ -347,6 +360,7 @@ public class AppStateCoordinator {
             guard !query.isEmpty else {
                 searchState.results = []
                 searchState.currentResultIndex = 0
+                uiState.hasSearchResults = false
                 searchState.isSearching = false
                 return
             }
@@ -360,6 +374,7 @@ public class AppStateCoordinator {
 
                 searchState.results = results
                 searchState.currentResultIndex = 0
+                uiState.hasSearchResults = !results.isEmpty
 
                 // Update document highlighting
                 if let document = documentState.currentDocument {
@@ -369,10 +384,10 @@ public class AppStateCoordinator {
                     )
                     documentState.documentContent = highlightedContent
                 }
-
             } catch {
                 searchState.searchError = error
                 searchState.results = []
+                uiState.hasSearchResults = false
             }
 
             searchState.isSearching = false
@@ -533,7 +548,7 @@ public class AppStateCoordinator {
         for results: [SearchResult]
     ) async -> AttributedString {
         // Return content as-is; highlighting is handled by the renderer
-        return content
+        content
     }
 
     private func updateSearchHighlighting() async {
@@ -543,12 +558,12 @@ public class AppStateCoordinator {
     private func calculateScrollPosition(for result: SearchResult) async -> CGFloat {
         // Calculate scroll position to show result
         // This would integrate with the document layout system
-        return CGFloat(result.lineNumber) * 20.0 // Simplified calculation
+        CGFloat(result.lineNumber) * 20.0 // Simplified calculation
     }
 
     private func calculateScrollPosition(for outline: OutlineItem) async -> CGFloat {
         // Calculate scroll position for heading
-        return outline.position
+        outline.position
     }
 
     private func isSameDocumentURL(_ lhs: URL, _ rhs: URL) -> Bool {
@@ -562,36 +577,36 @@ public class AppStateCoordinator {
 @Observable
 public class DocumentState {
     public var currentDocument: DocumentModel?
-    public var isLoading: Bool = false
+    public var isLoading = false
     public var parseError: Error?
-    public var documentContent: AttributedString = AttributedString()
+    public var documentContent = AttributedString()
     public var documentMetadata: DocumentMetadata?
     public var scrollPosition: CGFloat = 0
     public var selectedRange: NSRange?
-    public var zoomLevel: Double = 1.0
+    public var zoomLevel = 1.0
     public var scrollToHeadingID: String?
 
     // Multi-document support
     public var openDocuments: [DocumentModel] = []
-    public var activeDocumentIndex: Int = 0
+    public var activeDocumentIndex = 0
     public var untitledDocumentIDs: Set<UUID> = []
 
     // Compare mode
     public var compareDocument: DocumentModel?
-    public var isCompareMode: Bool = false
+    public var isCompareMode = false
 
-    // Line sync between source and content
-    public var focusedLine: Int? = nil
+    /// Line sync between source and content
+    public var focusedLine: Int?
 
     public init() {}
 }
 
 @Observable
 public class SearchState {
-    public var query: String = ""
+    public var query = ""
     public var results: [SearchResult] = []
-    public var isSearching: Bool = false
-    public var currentResultIndex: Int = 0
+    public var isSearching = false
+    public var currentResultIndex = 0
     public var searchError: Error?
     public var outline: [OutlineItem] = []
 
@@ -600,15 +615,15 @@ public class SearchState {
 
 @Observable
 public class UIState {
-    public var isDocumentLoaded: Bool = false
-    public var sidebarVisible: Bool = true
-    public var searchVisible: Bool = false
-    public var hasUnsavedChanges: Bool = false
-    public var hasSearchResults: Bool = false
+    public var isDocumentLoaded = false
+    public var sidebarVisible = true
+    public var searchVisible = false
+    public var hasUnsavedChanges = false
+    public var hasSearchResults = false
     public var currentModalPresentation: ModalPresentation?
-    public var showingDocumentPicker: Bool = false
-    public var showLineNumbers: Bool = false
-    public var editorContent: String = ""
+    public var showingDocumentPicker = false
+    public var showLineNumbers = false
+    public var editorContent = ""
 
     /// Global docking edge for both find bars. Persisted across launches.
     public var findBarPosition: FindBarPosition = UIState.loadFindBarPosition() {
@@ -749,7 +764,7 @@ public class CoordinatorUserPreferences {
     }
 
     public func getSidebarVisibility() async -> Bool {
-        return userDefaults.object(forKey: "MarkdownReader.SidebarVisible") as? Bool ?? true
+        userDefaults.object(forKey: "MarkdownReader.SidebarVisible") as? Bool ?? true
     }
 
     public func setSidebarVisibility(_ visible: Bool) async {
@@ -757,7 +772,7 @@ public class CoordinatorUserPreferences {
     }
 
     public func getSearchVisibility() async -> Bool {
-        return userDefaults.bool(forKey: "MarkdownReader.SearchVisible")
+        userDefaults.bool(forKey: "MarkdownReader.SearchVisible")
     }
 
     public func setSearchVisibility(_ visible: Bool) async {
@@ -812,7 +827,7 @@ public class DocumentCache {
     }
 
     public func get(_ url: URL) -> DocumentModel? {
-        return cache[url]
+        cache[url]
     }
 
     public func set(_ document: DocumentModel, for url: URL) {
@@ -846,26 +861,24 @@ public class AccessibilityManager {
 
 // MARK: - Preview Support
 
-extension AppStateCoordinator {
-    public static var preview: AppStateCoordinator {
-        let coordinator = AppStateCoordinator()
+public extension AppStateCoordinator {
+    static var preview: AppStateCoordinator {
+        AppStateCoordinator()
         // Setup preview state
-        return coordinator
     }
 
-    public static var previewLoading: AppStateCoordinator {
+    static var previewLoading: AppStateCoordinator {
         let coordinator = AppStateCoordinator()
         coordinator.documentState.isLoading = true
         return coordinator
     }
 
-    public static var previewEmpty: AppStateCoordinator {
-        let coordinator = AppStateCoordinator()
+    static var previewEmpty: AppStateCoordinator {
+        AppStateCoordinator()
         // Empty state for preview
-        return coordinator
     }
 
-    public static var previewWithSearch: AppStateCoordinator {
+    static var previewWithSearch: AppStateCoordinator {
         let coordinator = AppStateCoordinator()
         coordinator.searchState.query = "example"
         coordinator.searchState.results = SearchResult.previewResults

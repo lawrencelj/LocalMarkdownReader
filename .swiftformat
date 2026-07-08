@@ -7,7 +7,7 @@
 --maxwidth 120
 --tabwidth 4
 --assetliterals visual-width
---commas always
+--commas inline
 --semicolons never
 --ranges spaced
 --empty void
@@ -19,14 +19,12 @@
 --elseposition same-line
 --guardelse same-line
 --closingparen balanced
---wraptypealiases false
+--wraptypealiases preserve
 --wraparguments before-first
 --wrapcollections before-first
 --closurevoid remove
 --voidtype void
---redundanttype inferred-only
---redundantmodifiers
---redundantparens
+--redundanttype inferred
 
 # Enabled rules
 --enable isEmpty
@@ -46,7 +44,8 @@
 --enable duplicateImports
 --enable unusedArguments
 --enable hoistPatternLet
---enable wrapMultilineStatementBraces
+# wrapMultilineStatementBraces conflicts with SwiftLint's opening_brace rule
+--disable wrapMultilineStatementBraces
 --enable blankLinesAtStartOfScope
 --enable blankLinesAtEndOfScope
 --enable blankLinesBetweenScopes
@@ -60,9 +59,6 @@
 --enable trailingSpace
 --enable leadingDelimiters
 --enable wrapArguments
---enable wrapCollections
---enable closureVoid
---enable voidType
 
 # Disabled rules
 --disable andOperator
@@ -79,13 +75,11 @@
 --patternlet hoist
 --shortoptionals always
 --operatorfunc spaced
---nevertrailing
 --stripunusedargs closure-only
---imports testable-bottom
---importgrouping testable-bottom
+--importgrouping alphabetized
 --structthreshold 0
 --enumthreshold 0
---classtreshold 0
+--classthreshold 0
 --extensionlength 0
 --typeblanklines remove
 --categorymark "MARK: %c"

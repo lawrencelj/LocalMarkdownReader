@@ -1,7 +1,7 @@
-/// DocumentModel - Core document representation
-///
-/// Represents a parsed markdown document with metadata, content,
-/// and performance optimizations for large documents.
+// DocumentModel - Core document representation
+//
+// Represents a parsed markdown document with metadata, content,
+// and performance optimizations for large documents.
 
 import Foundation
 import Markdown
@@ -52,14 +52,14 @@ public struct DocumentModel: Sendable, Codable, Identifiable, Hashable {
         metadata: DocumentMetadata,
         outline: [HeadingItem]
     ) {
-        self.id = UUID()
+        id = UUID()
         self.reference = reference
         self.content = content
         self.attributedContent = attributedContent
         self.metadata = metadata
         self.outline = outline
-        self.parseDate = Date()
-        self.formatVersion = "1.0.0"
+        parseDate = Date()
+        formatVersion = "1.0.0"
     }
 
     // MARK: - Codable Implementation
@@ -83,9 +83,9 @@ public struct DocumentModel: Sendable, Codable, Identifiable, Hashable {
         switch DocumentFormat(url: reference.url) {
         case .markdown, .plainText:
             let parser = MarkdownParser()
-            self.attributedContent = try parser.parseToAttributedString(content)
+            attributedContent = try parser.parseToAttributedString(content)
         case .json, .xml, .html, .latex:
-            self.attributedContent = AttributedString(content)
+            attributedContent = AttributedString(content)
         }
     }
 
@@ -245,10 +245,10 @@ public struct DocumentMetadata: Sendable, Codable, Hashable {
         self.languageHints = languageHints
 
         switch encoding {
-        case .utf8: self.encodingName = "utf8"
-        case .utf16: self.encodingName = "utf16"
-        case .ascii: self.encodingName = "ascii"
-        default: self.encodingName = "utf8"
+        case .utf8: encodingName = "utf8"
+        case .utf16: encodingName = "utf16"
+        case .ascii: encodingName = "ascii"
+        default: encodingName = "utf8"
         }
     }
 
@@ -274,7 +274,7 @@ public struct HeadingItem: Sendable, Codable, Identifiable, Hashable {
         position: CGFloat = 0,
         children: [HeadingItem] = []
     ) {
-        self.id = UUID().uuidString
+        id = UUID().uuidString
         self.level = level
         self.title = title
         self.range = range
@@ -299,7 +299,7 @@ public enum DocumentError: Error, LocalizedError, Sendable {
         switch self {
         case .invalidContent:
             return "The document content is invalid or corrupted"
-        case .parseFailure(let reason):
+        case let .parseFailure(reason):
             return "Failed to parse document: \(reason)"
         case .fileNotFound:
             return "The requested file could not be found"
@@ -307,7 +307,7 @@ public enum DocumentError: Error, LocalizedError, Sendable {
             return "Access to the file was denied"
         case .securityScopeAccessFailed:
             return "Failed to access security-scoped resource"
-        case .fileTooLarge(let maxSize):
+        case let .fileTooLarge(maxSize):
             return "File is too large (maximum size: \(ByteCountFormatter().string(fromByteCount: maxSize)))"
         case .unsupportedEncoding:
             return "The file encoding is not supported"
@@ -321,9 +321,9 @@ public enum DocumentError: Error, LocalizedError, Sendable {
 
 // MARK: - Preview Support
 
-extension DocumentModel {
+public extension DocumentModel {
     /// Create a preview document for development and testing
-    public static var preview: DocumentModel {
+    static var preview: DocumentModel {
         let content = """
         # Sample Document
 

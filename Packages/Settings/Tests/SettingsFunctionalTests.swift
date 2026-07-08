@@ -1,11 +1,10 @@
-/// SettingsFunctionalTests - Verifies all settings functions work correctly
+// SettingsFunctionalTests - Verifies all settings functions work correctly
 
-import XCTest
 @testable import Settings
+import XCTest
 
 @MainActor
 final class SettingsFunctionalTests: XCTestCase {
-
     var preferencesService: PreferencesService!
     var testDefaults: UserDefaults!
 

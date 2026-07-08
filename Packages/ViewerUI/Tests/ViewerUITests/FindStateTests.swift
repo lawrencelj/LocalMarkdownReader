@@ -1,12 +1,11 @@
-/// FindStateTests - Functional tests for FindState navigation and the persisted
-/// find-bar position setting (C1).
+// FindStateTests - Functional tests for FindState navigation and the persisted
+// find-bar position setting (C1).
 
-import XCTest
 @testable import ViewerUI
+import XCTest
 
 @MainActor
 final class FindStateTests: XCTestCase {
-
     // MARK: - Navigation
 
     /// Function: `goToNextMatch()` with wrap.
@@ -16,9 +15,12 @@ final class FindStateTests: XCTestCase {
         state.matchCount = 3
         state.currentIndex = 0
 
-        state.goToNextMatch(); XCTAssertEqual(state.currentIndex, 1)
-        state.goToNextMatch(); XCTAssertEqual(state.currentIndex, 2)
-        state.goToNextMatch(); XCTAssertEqual(state.currentIndex, 0, "Next past the last match wraps to the first")
+        state.goToNextMatch()
+        XCTAssertEqual(state.currentIndex, 1)
+        state.goToNextMatch()
+        XCTAssertEqual(state.currentIndex, 2)
+        state.goToNextMatch()
+        XCTAssertEqual(state.currentIndex, 0, "Next past the last match wraps to the first")
     }
 
     /// Function: `goToPreviousMatch()` with wrap.
@@ -105,8 +107,11 @@ final class FindStateTests: XCTestCase {
         let key = "findBarPosition"
         let saved = UserDefaults.standard.string(forKey: key)
         defer {
-            if let saved { UserDefaults.standard.set(saved, forKey: key) }
-            else { UserDefaults.standard.removeObject(forKey: key) }
+            if let saved {
+                UserDefaults.standard.set(saved, forKey: key)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
         }
 
         UserDefaults.standard.removeObject(forKey: key)

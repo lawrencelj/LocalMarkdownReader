@@ -1,11 +1,11 @@
-/// MarkdownRenderer - Performance-optimized markdown content renderer
-///
-/// Implements viewport-based rendering with lazy loading for large documents,
-/// maintaining 60fps performance while providing rich markdown formatting
-/// and accessibility support.
+// MarkdownRenderer - Performance-optimized markdown content renderer
+//
+// Implements viewport-based rendering with lazy loading for large documents,
+// maintaining 60fps performance while providing rich markdown formatting
+// and accessibility support.
 
-import SwiftUI
 import MarkdownCore
+import SwiftUI
 
 /// High-performance markdown content renderer with viewport optimization
 public struct MarkdownRenderer: View {

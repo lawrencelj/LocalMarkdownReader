@@ -1,7 +1,7 @@
-/// SearchResultView - Individual search result with context preview
+// SearchResultView - Individual search result with context preview
 
-import SwiftUI
 import Search
+import SwiftUI
 
 /// Individual search result view with context and highlighting
 struct SearchResultView: View {

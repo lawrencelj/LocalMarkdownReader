@@ -1,7 +1,7 @@
-/// RecentDocuments - Recent files management
-///
-/// Manages a list of recently opened documents with privacy protection
-/// and persistence across app sessions.
+// RecentDocuments - Recent files management
+//
+// Manages a list of recently opened documents with privacy protection
+// and persistence across app sessions.
 
 import Foundation
 
@@ -23,7 +23,7 @@ public class RecentDocuments: ObservableObject {
             displayName: String? = nil,
             fileSize: Int64 = 0
         ) {
-            self.id = UUID()
+            id = UUID()
             self.url = url
             self.bookmark = bookmark
             self.lastAccessed = lastAccessed
@@ -58,12 +58,12 @@ public class RecentDocuments: ObservableObject {
 
     /// Get list of recent document URLs (for frontend compatibility)
     public func getRecentDocuments() -> [URL] {
-        return recentDocuments.map { $0.url }
+        recentDocuments.map { $0.url }
     }
 
     /// Get detailed recent documents
     public func getRecentDocumentDetails() -> [RecentDocument] {
-        return recentDocuments
+        recentDocuments
     }
 
     /// Add document to recent list
@@ -121,12 +121,12 @@ public class RecentDocuments: ObservableObject {
 
     /// Check if document is in recent list
     public func contains(_ url: URL) -> Bool {
-        return recentDocuments.contains { $0.url == url }
+        recentDocuments.contains { $0.url == url }
     }
 
     /// Get bookmark data for URL
     public func getBookmark(for url: URL) -> Data? {
-        return recentDocuments.first { $0.url == url }?.bookmark
+        recentDocuments.first { $0.url == url }?.bookmark
     }
 
     // MARK: - Private Implementation
@@ -170,10 +170,10 @@ public class RecentDocuments: ObservableObject {
         do {
             let decoded = try JSONDecoder().decode([RecentDocument].self, from: data)
             // Validate that files still exist and are accessible
-            self.recentDocuments = decoded.filter { validateRecentDocument($0) }
+            recentDocuments = decoded.filter { validateRecentDocument($0) }
         } catch {
             // If decoding fails, start fresh
-            self.recentDocuments = []
+            recentDocuments = []
         }
     }
 
@@ -199,9 +199,9 @@ public class RecentDocuments: ObservableObject {
 
 // MARK: - Preview Support
 
-extension RecentDocuments {
+public extension RecentDocuments {
     /// Create preview instance with sample data
-    public static var preview: RecentDocuments {
+    static var preview: RecentDocuments {
         let instance = RecentDocuments(userDefaults: UserDefaults())
 
         // Add sample documents
@@ -219,7 +219,7 @@ extension RecentDocuments {
     }
 
     /// Empty preview instance
-    public static var previewEmpty: RecentDocuments {
-        return RecentDocuments(userDefaults: UserDefaults())
+    static var previewEmpty: RecentDocuments {
+        RecentDocuments(userDefaults: UserDefaults())
     }
 }

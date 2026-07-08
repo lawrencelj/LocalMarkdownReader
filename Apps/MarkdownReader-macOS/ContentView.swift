@@ -1,11 +1,11 @@
-/// ContentView - macOS main application interface
+// ContentView - macOS main application interface
 
-import SwiftUI
-import ViewerUI
-import MarkdownCore
-import FileAccess
 import AppKit
+import FileAccess
+import MarkdownCore
+import SwiftUI
 import UniformTypeIdentifiers
+import ViewerUI
 
 /// Main macOS application interface with three-column layout
 struct ContentView: View {
@@ -60,8 +60,7 @@ struct ContentView: View {
 
     // MARK: - Content Column
 
-    @ViewBuilder
-    private var contentView: some View {
+    @ViewBuilder private var contentView: some View {
         switch sidebarSelection {
         case .outline:
             NavigationSidebar()
@@ -167,7 +166,10 @@ struct ContentView: View {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 0) {
-                        ForEach(Array(coordinator.documentState.openDocuments.enumerated()), id: \.element.id) { index, doc in
+                        ForEach(
+                            Array(coordinator.documentState.openDocuments.enumerated()),
+                            id: \.element.id
+                        ) { index, doc in
                             documentTab(doc, index: index)
                                 .id("tab-\(index)")
                         }
@@ -199,10 +201,12 @@ struct ContentView: View {
             Divider().frame(height: 16).padding(.horizontal, 4)
 
             // Tab count indicator
-            Text("\(coordinator.documentState.activeDocumentIndex + 1)/\(coordinator.documentState.openDocuments.count)")
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .padding(.trailing, 8)
+            Text(
+                "\(coordinator.documentState.activeDocumentIndex + 1)/\(coordinator.documentState.openDocuments.count)"
+            )
+            .font(.system(size: 10, design: .monospaced))
+            .foregroundStyle(.secondary)
+            .padding(.trailing, 8)
         }
         .frame(height: 32)
         .background(Color.gray.opacity(0.08))
@@ -305,7 +309,10 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List {
-                    ForEach(Array(coordinator.documentState.openDocuments.enumerated()), id: \.element.id) { index, doc in
+                    ForEach(
+                        Array(coordinator.documentState.openDocuments.enumerated()),
+                        id: \.element.id
+                    ) { index, doc in
                         openDocRow(doc, index: index)
                     }
                 }
@@ -395,8 +402,7 @@ struct ContentView: View {
 
     // MARK: - Toolbar
 
-    @ToolbarContentBuilder
-    private var mainToolbar: some ToolbarContent {
+    @ToolbarContentBuilder private var mainToolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .navigation) {
             Button {
                 withAnimation {
@@ -543,10 +549,10 @@ private struct MacOSSettingsView: View {
     @Environment(\.themeManager) private var themeManager
     @Environment(AppStateCoordinator.self) private var coordinator
     @State private var selectedTheme: Theme = .system
-    @State private var fontSizeValue: Double = 1.0
-    @State private var highContrast: Bool = false
-    @State private var reduceMotion: Bool = false
-    @State private var showLineNumbers: Bool = false
+    @State private var fontSizeValue = 1.0
+    @State private var highContrast = false
+    @State private var reduceMotion = false
+    @State private var showLineNumbers = false
     @State private var findBarPosition: FindBarPosition = .top
 
     var body: some View {
@@ -564,7 +570,7 @@ private struct MacOSSettingsView: View {
                 HStack {
                     Text("Font Size: \(Int(fontSizeValue * 100))%")
                     Spacer()
-                    Slider(value: $fontSizeValue, in: 0.5...3.0, step: 0.1)
+                    Slider(value: $fontSizeValue, in: 0.5 ... 3.0, step: 0.1)
                         .frame(width: 200)
                         .onChange(of: fontSizeValue) { _, newValue in
                             themeManager.adjustFontSize(multiplier: newValue)

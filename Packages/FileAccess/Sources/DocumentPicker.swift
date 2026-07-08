@@ -1,13 +1,13 @@
-/// DocumentPicker - Cross-platform document selection
-///
-/// Provides cross-platform document picking capabilities using
-/// UIDocumentPickerViewController on iOS and NSOpenPanel on macOS.
+// DocumentPicker - Cross-platform document selection
+//
+// Provides cross-platform document picking capabilities using
+// UIDocumentPickerViewController on iOS and NSOpenPanel on macOS.
 
 import Foundation
 #if os(macOS)
-import AppKit
+    import AppKit
 #else
-import UIKit
+    import UIKit
 #endif
 
 /// Cross-platform document picker
@@ -40,9 +40,9 @@ public actor DocumentPicker {
     /// Select a document using platform-appropriate picker
     public func selectDocument() async throws -> URL {
         #if os(macOS)
-        return try await selectDocumentMacOS()
+            return try await selectDocumentMacOS()
         #else
-        return try await selectDocumentIOS()
+            return try await selectDocumentIOS()
         #endif
     }
 
@@ -54,163 +54,163 @@ public actor DocumentPicker {
         }
 
         #if os(macOS)
-        return try await selectDocumentsMacOS()
+            return try await selectDocumentsMacOS()
         #else
-        return try await selectDocumentsIOS()
+            return try await selectDocumentsIOS()
         #endif
     }
 
     // MARK: - macOS Implementation
 
     #if os(macOS)
-    private func selectDocumentMacOS() async throws -> URL {
-        return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.main.async {
-                let openPanel = NSOpenPanel()
-                openPanel.canChooseFiles = true
-                openPanel.canChooseDirectories = self.configuration.canChooseDirectories
-                openPanel.allowsMultipleSelection = false
-                openPanel.canCreateDirectories = false
-                openPanel.allowedContentTypes = self.configuration.allowedFileTypes.compactMap {
-                    UTType(filenameExtension: $0)
-                }
+        private func selectDocumentMacOS() async throws -> URL {
+            try await withCheckedThrowingContinuation { continuation in
+                DispatchQueue.main.async {
+                    let openPanel = NSOpenPanel()
+                    openPanel.canChooseFiles = true
+                    openPanel.canChooseDirectories = self.configuration.canChooseDirectories
+                    openPanel.allowsMultipleSelection = false
+                    openPanel.canCreateDirectories = false
+                    openPanel.allowedContentTypes = self.configuration.allowedFileTypes.compactMap {
+                        UTType(filenameExtension: $0)
+                    }
 
-                openPanel.begin { response in
-                    if response == .OK, let url = openPanel.url {
-                        continuation.resume(returning: url)
-                    } else {
-                        continuation.resume(throwing: DocumentPickerError.cancelled)
+                    openPanel.begin { response in
+                        if response == .OK, let url = openPanel.url {
+                            continuation.resume(returning: url)
+                        } else {
+                            continuation.resume(throwing: DocumentPickerError.cancelled)
+                        }
                     }
                 }
             }
         }
-    }
 
-    private func selectDocumentsMacOS() async throws -> [URL] {
-        return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.main.async {
-                let openPanel = NSOpenPanel()
-                openPanel.canChooseFiles = true
-                openPanel.canChooseDirectories = self.configuration.canChooseDirectories
-                openPanel.allowsMultipleSelection = true
-                openPanel.canCreateDirectories = false
-                openPanel.allowedContentTypes = self.configuration.allowedFileTypes.compactMap {
-                    UTType(filenameExtension: $0)
-                }
+        private func selectDocumentsMacOS() async throws -> [URL] {
+            try await withCheckedThrowingContinuation { continuation in
+                DispatchQueue.main.async {
+                    let openPanel = NSOpenPanel()
+                    openPanel.canChooseFiles = true
+                    openPanel.canChooseDirectories = self.configuration.canChooseDirectories
+                    openPanel.allowsMultipleSelection = true
+                    openPanel.canCreateDirectories = false
+                    openPanel.allowedContentTypes = self.configuration.allowedFileTypes.compactMap {
+                        UTType(filenameExtension: $0)
+                    }
 
-                openPanel.begin { response in
-                    if response == .OK {
-                        continuation.resume(returning: openPanel.urls)
-                    } else {
-                        continuation.resume(throwing: DocumentPickerError.cancelled)
+                    openPanel.begin { response in
+                        if response == .OK {
+                            continuation.resume(returning: openPanel.urls)
+                        } else {
+                            continuation.resume(throwing: DocumentPickerError.cancelled)
+                        }
                     }
                 }
             }
         }
-    }
     #endif
 
     // MARK: - iOS Implementation
 
     #if os(iOS)
-    private func selectDocumentIOS() async throws -> URL {
-        return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.main.async {
-                guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                      let window = windowScene.windows.first,
-                      let rootViewController = window.rootViewController else {
-                    continuation.resume(throwing: DocumentPickerError.noRootViewController)
-                    return
-                }
-
-                let documentTypes = self.configuration.allowedFileTypes.map { "public.\($0)" }
-                let picker = UIDocumentPickerViewController(
-                    forOpeningContentTypes: documentTypes.compactMap { UTType($0) }
-                )
-
-                picker.allowsMultipleSelection = false
-                picker.delegate = DocumentPickerDelegate(
-                    singleSelection: { url in
-                        continuation.resume(returning: url)
-                    },
-                    multipleSelection: { _ in
-                        // Not used for single selection
-                    },
-                    cancellation: {
-                        continuation.resume(throwing: DocumentPickerError.cancelled)
+        private func selectDocumentIOS() async throws -> URL {
+            try await withCheckedThrowingContinuation { continuation in
+                DispatchQueue.main.async {
+                    guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                          let window = windowScene.windows.first,
+                          let rootViewController = window.rootViewController else {
+                        continuation.resume(throwing: DocumentPickerError.noRootViewController)
+                        return
                     }
-                )
 
-                rootViewController.present(picker, animated: true)
+                    let documentTypes = self.configuration.allowedFileTypes.map { "public.\($0)" }
+                    let picker = UIDocumentPickerViewController(
+                        forOpeningContentTypes: documentTypes.compactMap { UTType($0) }
+                    )
+
+                    picker.allowsMultipleSelection = false
+                    picker.delegate = DocumentPickerDelegate(
+                        singleSelection: { url in
+                            continuation.resume(returning: url)
+                        },
+                        multipleSelection: { _ in
+                            // Not used for single selection
+                        },
+                        cancellation: {
+                            continuation.resume(throwing: DocumentPickerError.cancelled)
+                        }
+                    )
+
+                    rootViewController.present(picker, animated: true)
+                }
             }
         }
-    }
 
-    private func selectDocumentsIOS() async throws -> [URL] {
-        return try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.main.async {
-                guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                      let window = windowScene.windows.first,
-                      let rootViewController = window.rootViewController else {
-                    continuation.resume(throwing: DocumentPickerError.noRootViewController)
-                    return
-                }
-
-                let documentTypes = self.configuration.allowedFileTypes.map { "public.\($0)" }
-                let picker = UIDocumentPickerViewController(
-                    forOpeningContentTypes: documentTypes.compactMap { UTType($0) }
-                )
-
-                picker.allowsMultipleSelection = true
-                picker.delegate = DocumentPickerDelegate(
-                    singleSelection: { url in
-                        continuation.resume(returning: [url])
-                    },
-                    multipleSelection: { urls in
-                        continuation.resume(returning: urls)
-                    },
-                    cancellation: {
-                        continuation.resume(throwing: DocumentPickerError.cancelled)
+        private func selectDocumentsIOS() async throws -> [URL] {
+            try await withCheckedThrowingContinuation { continuation in
+                DispatchQueue.main.async {
+                    guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                          let window = windowScene.windows.first,
+                          let rootViewController = window.rootViewController else {
+                        continuation.resume(throwing: DocumentPickerError.noRootViewController)
+                        return
                     }
-                )
 
-                rootViewController.present(picker, animated: true)
+                    let documentTypes = self.configuration.allowedFileTypes.map { "public.\($0)" }
+                    let picker = UIDocumentPickerViewController(
+                        forOpeningContentTypes: documentTypes.compactMap { UTType($0) }
+                    )
+
+                    picker.allowsMultipleSelection = true
+                    picker.delegate = DocumentPickerDelegate(
+                        singleSelection: { url in
+                            continuation.resume(returning: [url])
+                        },
+                        multipleSelection: { urls in
+                            continuation.resume(returning: urls)
+                        },
+                        cancellation: {
+                            continuation.resume(throwing: DocumentPickerError.cancelled)
+                        }
+                    )
+
+                    rootViewController.present(picker, animated: true)
+                }
             }
         }
-    }
     #endif
 }
 
 // MARK: - iOS Document Picker Delegate
 
 #if os(iOS)
-private class DocumentPickerDelegate: NSObject, UIDocumentPickerDelegate {
-    private let singleSelection: (URL) -> Void
-    private let multipleSelection: ([URL]) -> Void
-    private let cancellation: () -> Void
+    private class DocumentPickerDelegate: NSObject, UIDocumentPickerDelegate {
+        private let singleSelection: (URL) -> Void
+        private let multipleSelection: ([URL]) -> Void
+        private let cancellation: () -> Void
 
-    init(
-        singleSelection: @escaping (URL) -> Void,
-        multipleSelection: @escaping ([URL]) -> Void,
-        cancellation: @escaping () -> Void
-    ) {
-        self.singleSelection = singleSelection
-        self.multipleSelection = multipleSelection
-        self.cancellation = cancellation
-    }
+        init(
+            singleSelection: @escaping (URL) -> Void,
+            multipleSelection: @escaping ([URL]) -> Void,
+            cancellation: @escaping () -> Void
+        ) {
+            self.singleSelection = singleSelection
+            self.multipleSelection = multipleSelection
+            self.cancellation = cancellation
+        }
 
-    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-        if urls.count == 1 {
-            singleSelection(urls[0])
-        } else {
-            multipleSelection(urls)
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            if urls.count == 1 {
+                singleSelection(urls[0])
+            } else {
+                multipleSelection(urls)
+            }
+        }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            cancellation()
         }
     }
-
-    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-        cancellation()
-    }
-}
 #endif
 
 // MARK: - Document Picker Errors
@@ -238,10 +238,10 @@ public enum DocumentPickerError: Error, LocalizedError, Sendable {
 // MARK: - UTType Extension
 
 #if os(macOS)
-import UniformTypeIdentifiers
+    import UniformTypeIdentifiers
 
-extension UTType {
-    static let markdown = UTType(filenameExtension: "md") ?? UTType.plainText
-    static let text = UTType(filenameExtension: "txt") ?? UTType.plainText
-}
+    extension UTType {
+        static let markdown = UTType(filenameExtension: "md") ?? UTType.plainText
+        static let text = UTType(filenameExtension: "txt") ?? UTType.plainText
+    }
 #endif

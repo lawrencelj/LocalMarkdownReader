@@ -1,11 +1,11 @@
-/// ThemeManager - Theme and accessibility settings management
-///
-/// Provides comprehensive theme management with accessibility support,
-/// dynamic type adaptation, and cross-platform consistency. Implements
-/// WCAG 2.1 AA compliance with automatic contrast validation.
+// ThemeManager - Theme and accessibility settings management
+//
+// Provides comprehensive theme management with accessibility support,
+// dynamic type adaptation, and cross-platform consistency. Implements
+// WCAG 2.1 AA compliance with automatic contrast validation.
 
-import SwiftUI
 import Settings
+import SwiftUI
 
 /// Central theme management system with accessibility support
 @MainActor
@@ -14,17 +14,17 @@ public class ThemeManager {
     // MARK: - Theme State
 
     public var currentTheme: Theme = .system
-    public var customColors: CustomColorScheme? = nil
+    public var customColors: CustomColorScheme?
     public var fontSizeMultiplier: CGFloat = 1.0
     public var lineSpacingMultiplier: CGFloat = 1.0
-    public var isHighContrastEnabled: Bool = false
-    public var isReduceMotionEnabled: Bool = false
+    public var isHighContrastEnabled = false
+    public var isReduceMotionEnabled = false
 
     // MARK: - Accessibility State
 
-    public var voiceOverEnabled: Bool = false
-    public var switchControlEnabled: Bool = false
-    public var assistiveTouchEnabled: Bool = false
+    public var voiceOverEnabled = false
+    public var switchControlEnabled = false
+    public var assistiveTouchEnabled = false
 
     // MARK: - Color Overrides
 
@@ -187,7 +187,7 @@ public class ThemeManager {
     public func isColorBlindnessFriendly(_ colors: [Color]) -> Bool {
         // Simplified color blindness validation
         // In a real implementation, this would check various types of color blindness
-        return colors.allSatisfy { color in
+        colors.allSatisfy { color in
             validateColorForColorBlindness(color)
         }
     }
@@ -222,46 +222,46 @@ public class ThemeManager {
     private func observeSystemSettings() {
         // Observe system accessibility settings
         #if os(iOS)
-        NotificationCenter.default.addObserver(
-            forName: UIAccessibility.voiceOverStatusDidChangeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.voiceOverEnabled = UIAccessibility.isVoiceOverRunning
-        }
+            NotificationCenter.default.addObserver(
+                forName: UIAccessibility.voiceOverStatusDidChangeNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.voiceOverEnabled = UIAccessibility.isVoiceOverRunning
+            }
 
-        NotificationCenter.default.addObserver(
-            forName: UIAccessibility.switchControlStatusDidChangeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.switchControlEnabled = UIAccessibility.isSwitchControlRunning
-        }
+            NotificationCenter.default.addObserver(
+                forName: UIAccessibility.switchControlStatusDidChangeNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.switchControlEnabled = UIAccessibility.isSwitchControlRunning
+            }
 
-        NotificationCenter.default.addObserver(
-            forName: UIAccessibility.reduceMotionStatusDidChangeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.isReduceMotionEnabled = UIAccessibility.isReduceMotionEnabled
-        }
+            NotificationCenter.default.addObserver(
+                forName: UIAccessibility.reduceMotionStatusDidChangeNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.isReduceMotionEnabled = UIAccessibility.isReduceMotionEnabled
+            }
 
-        // Initial values
-        voiceOverEnabled = UIAccessibility.isVoiceOverRunning
-        switchControlEnabled = UIAccessibility.isSwitchControlRunning
-        isReduceMotionEnabled = UIAccessibility.isReduceMotionEnabled
+            // Initial values
+            voiceOverEnabled = UIAccessibility.isVoiceOverRunning
+            switchControlEnabled = UIAccessibility.isSwitchControlRunning
+            isReduceMotionEnabled = UIAccessibility.isReduceMotionEnabled
         #elseif os(macOS)
-        NotificationCenter.default.addObserver(
-            forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.voiceOverEnabled = NSWorkspace.shared.isVoiceOverEnabled
-            self?.isReduceMotionEnabled = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        }
+            NotificationCenter.default.addObserver(
+                forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.voiceOverEnabled = NSWorkspace.shared.isVoiceOverEnabled
+                self?.isReduceMotionEnabled = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            }
 
-        voiceOverEnabled = NSWorkspace.shared.isVoiceOverEnabled
-        isReduceMotionEnabled = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            voiceOverEnabled = NSWorkspace.shared.isVoiceOverEnabled
+            isReduceMotionEnabled = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         #endif
     }
 
@@ -299,7 +299,7 @@ public class ThemeManager {
     private func scaledFont(_ font: Font) -> Font {
         // Apply font size multiplier
         // This is a simplified implementation
-        return font
+        font
     }
 
     private func baseLineSpacing(for style: Font.TextStyle) -> CGFloat {
@@ -316,24 +316,24 @@ public class ThemeManager {
     private func calculateContrastRatio(_ foreground: Color, _ background: Color) -> Double {
         // Simplified contrast ratio calculation
         // A real implementation would convert to RGB and calculate proper contrast
-        return 4.5 // Placeholder
+        4.5 // Placeholder
     }
 
     private func validateColorForColorBlindness(_ color: Color) -> Bool {
         // Simplified color blindness validation
         // A real implementation would check against color blindness matrices
-        return true // Placeholder
+        true // Placeholder
     }
 }
 
 // MARK: - Supporting Types
 
 public enum Theme: String, CaseIterable, Codable {
-    case light = "light"
-    case dark = "dark"
-    case system = "system"
-    case custom = "custom"
-    case highContrast = "highContrast"
+    case light
+    case dark
+    case system
+    case custom
+    case highContrast
 
     public var displayName: String {
         switch self {
@@ -426,7 +426,7 @@ public enum ColorToken: String, CaseIterable, Codable {
 
 public enum ContrastValidation {
     case aaa // 7.0+ ratio
-    case aa  // 4.5+ ratio
+    case aa // 4.5+ ratio
     case fail // Below 4.5
 
     public var isAccessible: Bool {
@@ -464,8 +464,8 @@ public struct ThemeEnvironmentKey: EnvironmentKey {
     public static let defaultValue = ThemeManager()
 }
 
-extension EnvironmentValues {
-    public var themeManager: ThemeManager {
+public extension EnvironmentValues {
+    var themeManager: ThemeManager {
         get { self[ThemeEnvironmentKey.self] }
         set { self[ThemeEnvironmentKey.self] = newValue }
     }

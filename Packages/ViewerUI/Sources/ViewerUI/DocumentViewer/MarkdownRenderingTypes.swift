@@ -1,7 +1,7 @@
-/// MarkdownRenderingTypes - Supporting types for the MarkdownRenderer
+// MarkdownRenderingTypes - Supporting types for the MarkdownRenderer
 
-import SwiftUI
 import MarkdownCore
+import SwiftUI
 
 // MARK: - Markdown Element
 
@@ -63,7 +63,7 @@ public actor MarkdownContentProcessor {
         let batchSize = 10
         for batchStart in stride(from: 0, to: paragraphs.count, by: batchSize) {
             let batchEnd = min(batchStart + batchSize, paragraphs.count)
-            let batch = paragraphs[batchStart..<batchEnd]
+            let batch = paragraphs[batchStart ..< batchEnd]
 
             let elements = batch.map { text -> MarkdownElement in
                 MarkdownElement(type: .paragraph, plainText: text)

@@ -1,9 +1,9 @@
-/// FindState - Observable state for a single in-pane find bar.
-///
-/// One instance backs the source-pane bar and another the content-pane bar; the two
-/// are fully independent (separate query and options). The owning pane computes
-/// `matchCount`/`regexInvalid` from its own content via `FindMatching` and updates
-/// `currentIndex` navigation; the bar UI only reads these and edits the query/options.
+// FindState - Observable state for a single in-pane find bar.
+//
+// One instance backs the source-pane bar and another the content-pane bar; the two
+// are fully independent (separate query and options). The owning pane computes
+// `matchCount`/`regexInvalid` from its own content via `FindMatching` and updates
+// `currentIndex` navigation; the bar UI only reads these and edits the query/options.
 
 import Foundation
 
@@ -29,22 +29,24 @@ public enum FindPane: Sendable {
 @Observable
 public final class FindState {
     /// Whether the bar is shown for its pane.
-    public var isVisible: Bool = false
+    public var isVisible = false
     /// The current search text.
-    public var query: String = ""
+    public var query = ""
+    /// The replacement text used by the replace controls (source pane only).
+    public var replaceText = ""
     /// Opt-in case sensitivity (default off → case-insensitive).
-    public var caseSensitive: Bool = false
+    public var caseSensitive = false
     /// Opt-in whole-word matching (default off; ignored while `useRegex` is on).
-    public var wholeWord: Bool = false
+    public var wholeWord = false
     /// Opt-in regular-expression mode (default off).
-    public var useRegex: Bool = false
+    public var useRegex = false
 
     /// Total matches in the pane for the current query, set by the owning pane.
-    public var matchCount: Int = 0
+    public var matchCount = 0
     /// 0-based index of the active match; `0` when there are none.
-    public var currentIndex: Int = 0
+    public var currentIndex = 0
     /// True when `useRegex` is on and the query does not compile.
-    public var regexInvalid: Bool = false
+    public var regexInvalid = false
 
     public init() {}
 

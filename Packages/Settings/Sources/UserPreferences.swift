@@ -1,7 +1,7 @@
-/// UserPreferences - User preference management and persistence
-///
-/// Manages user preferences with automatic persistence, validation,
-/// and optional iCloud synchronization.
+// UserPreferences - User preference management and persistence
+//
+// Manages user preferences with automatic persistence, validation,
+// and optional iCloud synchronization.
 
 import Foundation
 
@@ -46,12 +46,12 @@ public class UserPreferences: ObservableObject {
     private var recentFiles: [URL] = []
     private var lastDocument: URL?
     private var scrollPositions: [URL: CGFloat] = [:]
-    private var sidebarVisibility: Bool = true
-    private var searchVisibility: Bool = false
+    private var sidebarVisibility = true
+    private var searchVisibility = false
 
     // MARK: - Storage Keys
 
-    private struct StorageKeys {
+    private enum StorageKeys {
         static let theme = "MarkdownReader.Theme"
         static let accessibilitySettings = "MarkdownReader.AccessibilitySettings"
         static let privacySettings = "MarkdownReader.PrivacySettings"
@@ -70,16 +70,16 @@ public class UserPreferences: ObservableObject {
 
     public init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
-        self.iCloudStore = NSUbiquitousKeyValueStore.default
+        iCloudStore = NSUbiquitousKeyValueStore.default
 
         // Initialize with defaults, then load saved values
-        self.theme = .default
-        self.accessibilitySettings = .default
-        self.privacySettings = .default
-        self.featureToggles = .default
-        self.editorSettings = .default
-        self.performanceSettings = .default
-        self.iCloudSyncEnabled = false
+        theme = .default
+        accessibilitySettings = .default
+        privacySettings = .default
+        featureToggles = .default
+        editorSettings = .default
+        performanceSettings = .default
+        iCloudSyncEnabled = false
 
         loadAllSettings()
         setupICloudObserver()
@@ -137,7 +137,7 @@ public class UserPreferences: ObservableObject {
 
     /// Get recent files list
     public func getRecentFiles() -> [URL] {
-        return recentFiles
+        recentFiles
     }
 
     /// Remove file from recent files
@@ -162,7 +162,7 @@ public class UserPreferences: ObservableObject {
 
     /// Get last opened document
     public func getLastDocument() async -> URL? {
-        return lastDocument
+        lastDocument
     }
 
     /// Save scroll position for document
@@ -174,7 +174,7 @@ public class UserPreferences: ObservableObject {
 
     /// Get scroll position for document
     public func getScrollPosition(for url: URL) async -> CGFloat? {
-        return scrollPositions[url]
+        scrollPositions[url]
     }
 
     /// Set sidebar visibility
@@ -185,7 +185,7 @@ public class UserPreferences: ObservableObject {
 
     /// Get sidebar visibility
     public func getSidebarVisibility() async -> Bool {
-        return sidebarVisibility
+        sidebarVisibility
     }
 
     /// Set search visibility
@@ -196,7 +196,7 @@ public class UserPreferences: ObservableObject {
 
     /// Get search visibility
     public func getSearchVisibility() async -> Bool {
-        return searchVisibility
+        searchVisibility
     }
 
     // MARK: - Private Implementation
@@ -427,7 +427,8 @@ public class UserPreferences: ObservableObject {
         )
     }
 
-    @objc private func iCloudStoreDidChange(_ notification: Notification) {
+    @objc
+    private func iCloudStoreDidChange(_ notification: Notification) {
         guard iCloudSyncEnabled else { return }
 
         Task { @MainActor in
@@ -439,9 +440,9 @@ public class UserPreferences: ObservableObject {
 
 // MARK: - Preview Support
 
-extension UserPreferences {
+public extension UserPreferences {
     /// Create preview instance with sample data
-    public static var preview: UserPreferences {
+    static var preview: UserPreferences {
         let instance = UserPreferences(userDefaults: UserDefaults())
         instance.theme = .dark
         instance.accessibilitySettings = .highAccessibility
@@ -449,7 +450,7 @@ extension UserPreferences {
     }
 
     /// Empty preview instance
-    public static var previewEmpty: UserPreferences {
-        return UserPreferences(userDefaults: UserDefaults())
+    static var previewEmpty: UserPreferences {
+        UserPreferences(userDefaults: UserDefaults())
     }
 }

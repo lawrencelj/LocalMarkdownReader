@@ -1,7 +1,7 @@
-/// SettingsManager - Settings coordination and management
-///
-/// Provides centralized settings management, import/export functionality,
-/// and iCloud synchronization coordination.
+// SettingsManager - Settings coordination and management
+//
+// Provides centralized settings management, import/export functionality,
+// and iCloud synchronization coordination.
 
 import Foundation
 
@@ -84,7 +84,7 @@ public actor SettingsManager {
 
     /// Check if iCloud sync is available
     public func isICloudSyncAvailable() -> Bool {
-        return FileManager.default.ubiquityIdentityToken != nil
+        FileManager.default.ubiquityIdentityToken != nil
     }
 
     /// Enable iCloud sync
@@ -117,7 +117,7 @@ public actor SettingsManager {
     /// Migrate settings from older version
     public func migrateSettings(from version: String, preferences: UserPreferencesData) throws -> UserPreferencesData {
         switch version {
-        case "0.9.0"..<"1.0.0":
+        case "0.9.0" ..< "1.0.0":
             return try migrateFromV0_9(preferences)
         default:
             // No migration needed
@@ -127,7 +127,7 @@ public actor SettingsManager {
 
     /// Check if migration is needed
     public func migrationNeeded(from version: String) -> Bool {
-        return version != "1.0.0"
+        version != "1.0.0"
     }
 
     // MARK: - Settings Validation
@@ -201,7 +201,7 @@ public actor SettingsManager {
 
     /// Get predefined settings templates
     public func getSettingsTemplates() -> [SettingsTemplate] {
-        return [
+        [
             SettingsTemplate(
                 name: "Default",
                 description: "Balanced settings for general use",
@@ -334,9 +334,9 @@ public enum SettingsError: Error, LocalizedError, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .incompatibleVersion(let version):
+        case let .incompatibleVersion(version):
             return "Settings version \(version) is not compatible with this app version"
-        case .invalidFormat(let underlying):
+        case let .invalidFormat(underlying):
             return "Invalid settings file format: \(underlying.localizedDescription)"
         case .invalidTheme:
             return "Theme settings are invalid"
@@ -348,9 +348,9 @@ public enum SettingsError: Error, LocalizedError, Sendable {
             return "Privacy settings are invalid"
         case .iCloudUnavailable:
             return "iCloud is not available"
-        case .exportFailed(let underlying):
+        case let .exportFailed(underlying):
             return "Failed to export settings: \(underlying.localizedDescription)"
-        case .importFailed(let underlying):
+        case let .importFailed(underlying):
             return "Failed to import settings: \(underlying.localizedDescription)"
         }
     }

@@ -1,7 +1,7 @@
-/// PreferencesService - Main preferences service interface
-///
-/// Provides the primary interface for settings management expected by the
-/// frontend AppStateCoordinator, with privacy protection and iCloud sync.
+// PreferencesService - Main preferences service interface
+//
+// Provides the primary interface for settings management expected by the
+// frontend AppStateCoordinator, with privacy protection and iCloud sync.
 
 import Foundation
 
@@ -12,15 +12,15 @@ public class PreferencesService: ObservableObject {
     private let settingsManager: SettingsManager
 
     public init(userDefaults: UserDefaults = .standard) {
-        self.userPreferences = UserPreferences(userDefaults: userDefaults)
-        self.settingsManager = SettingsManager.shared
+        userPreferences = UserPreferences(userDefaults: userDefaults)
+        settingsManager = SettingsManager.shared
     }
 
     // MARK: - Frontend Interface Methods
 
     /// Get current theme
     public func getTheme() -> AppTheme {
-        return userPreferences.theme
+        userPreferences.theme
     }
 
     /// Set theme
@@ -30,7 +30,7 @@ public class PreferencesService: ObservableObject {
 
     /// Get accessibility settings
     public func getAccessibilitySettings() -> AccessibilitySettings {
-        return userPreferences.accessibilitySettings
+        userPreferences.accessibilitySettings
     }
 
     /// Set accessibility settings
@@ -42,7 +42,7 @@ public class PreferencesService: ObservableObject {
 
     /// Get all user preferences
     public func getAllPreferences() -> UserPreferencesData {
-        return UserPreferencesData(
+        UserPreferencesData(
             theme: userPreferences.theme,
             accessibilitySettings: userPreferences.accessibilitySettings,
             privacySettings: userPreferences.privacySettings,
@@ -69,7 +69,7 @@ public class PreferencesService: ObservableObject {
 
     /// Export settings
     public func exportSettings() throws -> Data {
-        return try settingsManager.exportSettings(userPreferences)
+        try settingsManager.exportSettings(userPreferences)
     }
 
     /// Import settings
@@ -80,7 +80,7 @@ public class PreferencesService: ObservableObject {
 
     /// Check if iCloud sync is available
     public func isICloudSyncAvailable() async -> Bool {
-        return await settingsManager.isICloudSyncAvailable()
+        await settingsManager.isICloudSyncAvailable()
     }
 
     /// Enable/disable iCloud sync
@@ -139,9 +139,9 @@ public struct AppTheme: Codable, Sendable, Hashable {
 
 /// Appearance mode
 public enum Appearance: String, Codable, CaseIterable, Sendable {
-    case system = "system"
-    case light = "light"
-    case dark = "dark"
+    case system
+    case light
+    case dark
 
     public var displayName: String {
         switch self {
@@ -154,13 +154,13 @@ public enum Appearance: String, Codable, CaseIterable, Sendable {
 
 /// Theme colors
 public enum ThemeColor: String, Codable, CaseIterable, Sendable {
-    case blue = "blue"
-    case green = "green"
-    case orange = "orange"
-    case red = "red"
-    case purple = "purple"
-    case yellow = "yellow"
-    case pink = "pink"
+    case blue
+    case green
+    case orange
+    case red
+    case purple
+    case yellow
+    case pink
 
     public var displayName: String {
         rawValue.capitalized
@@ -169,11 +169,11 @@ public enum ThemeColor: String, Codable, CaseIterable, Sendable {
 
 /// Font sizes
 public enum FontSize: String, Codable, CaseIterable, Sendable {
-    case extraSmall = "extraSmall"
-    case small = "small"
-    case medium = "medium"
-    case large = "large"
-    case extraLarge = "extraLarge"
+    case extraSmall
+    case small
+    case medium
+    case large
+    case extraLarge
 
     public var pointSize: CGFloat {
         switch self {
@@ -198,10 +198,10 @@ public enum FontSize: String, Codable, CaseIterable, Sendable {
 
 /// Font families
 public enum FontFamily: String, Codable, CaseIterable, Sendable {
-    case system = "system"
-    case monospace = "monospace"
-    case serif = "serif"
-    case sansSerif = "sansSerif"
+    case system
+    case monospace
+    case serif
+    case sansSerif
 
     public var displayName: String {
         switch self {
@@ -215,9 +215,9 @@ public enum FontFamily: String, Codable, CaseIterable, Sendable {
 
 /// Line spacing options
 public enum LineSpacing: String, Codable, CaseIterable, Sendable {
-    case compact = "compact"
-    case normal = "normal"
-    case relaxed = "relaxed"
+    case compact
+    case normal
+    case relaxed
 
     public var multiplier: CGFloat {
         switch self {
@@ -238,11 +238,11 @@ public enum LineSpacing: String, Codable, CaseIterable, Sendable {
 
 /// Code highlighting themes
 public enum CodeHighlightingTheme: String, Codable, CaseIterable, Sendable {
-    case `default` = "default"
-    case github = "github"
-    case xcode = "xcode"
-    case solarized = "solarized"
-    case monokai = "monokai"
+    case `default`
+    case github
+    case xcode
+    case solarized
+    case monokai
 
     public var displayName: String {
         switch self {
@@ -514,9 +514,9 @@ public struct UserPreferencesData: Codable, Sendable {
 
 // MARK: - Preview Support
 
-extension PreferencesService {
+public extension PreferencesService {
     /// Create a preview service for development
-    public static var preview: PreferencesService {
-        return PreferencesService(userDefaults: UserDefaults())
+    static var preview: PreferencesService {
+        PreferencesService(userDefaults: UserDefaults())
     }
 }

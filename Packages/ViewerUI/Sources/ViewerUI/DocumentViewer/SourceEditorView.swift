@@ -1,9 +1,9 @@
-/// SourceEditorView - Editable markdown source with spell checking
+// SourceEditorView - Editable markdown source with spell checking
 
-import SwiftUI
 import AppKit
 import FileAccess
 import MarkdownCore
+import SwiftUI
 import UniformTypeIdentifiers
 
 /// Editable source view with line numbers and spell checking
@@ -11,9 +11,12 @@ public struct SourceEditorView: View {
     @Environment(AppStateCoordinator.self) private var coordinator
     @Environment(\.themeManager) private var themeManager
 
-    @State private var editedContent: String = ""
-    @State private var hasLocalChanges: Bool = false
+    @State private var editedContent = ""
+    @State private var hasLocalChanges = false
     @State private var currentDocumentID: UUID?
+    // Bumped by the find bar's Replace / Replace All buttons to request one edit.
+    @State private var replaceCurrentToken = 0
+    @State private var replaceAllToken = 0
 
     public init() {}
 
@@ -98,7 +101,9 @@ public struct SourceEditorView: View {
             placeholder: "Find in source",
             onNext: { coordinator.sourceFind.goToNextMatch() },
             onPrevious: { coordinator.sourceFind.goToPreviousMatch() },
-            onClose: { coordinator.sourceFind.close() }
+            onClose: { coordinator.sourceFind.close() },
+            onReplace: { replaceCurrentToken += 1 },
+            onReplaceAll: { replaceAllToken += 1 }
         )
     }
 
@@ -122,7 +127,10 @@ public struct SourceEditorView: View {
                 coordinator.sourceFind.regexInvalid = invalid
                 coordinator.sourceFind.clampCurrentIndex()
             },
-            onFocused: { coordinator.lastFocusedPane = .source }
+            onFocused: { coordinator.lastFocusedPane = .source },
+            replacement: coordinator.sourceFind.replaceText,
+            replaceCurrentToken: replaceCurrentToken,
+            replaceAllToken: replaceAllToken
         )
         .onAppear { syncFromCurrentDocument() }
         .onChange(of: coordinator.documentState.currentDocument?.id) { _, _ in
@@ -210,14 +218,21 @@ struct LineNumberEditorWrapper: NSViewRepresentable {
     var lineNumberFontSize: CGFloat
 
     // Find bar inputs (source pane). Highlighting is non-destructive (temporary attributes).
-    var findActive: Bool = false
-    var findQuery: String = ""
-    var findOptions: FindOptions = FindOptions()
-    var findCurrentIndex: Int = 0
+    var findActive = false
+    var findQuery = ""
+    var findOptions = FindOptions()
+    var findCurrentIndex = 0
     /// Reports `(matchCount, regexInvalid)` back to the find state after a highlight pass.
     var onFindResult: (Int, Bool) -> Void = { _, _ in }
     /// Called when the editor gains focus, so Cmd-F targets the source pane.
     var onFocused: () -> Void = {}
+
+    // Replace inputs. `replacement` is the text to insert; the two tokens are bumped by
+    // the find bar's Replace / Replace All buttons — a change (vs the last-seen value)
+    // triggers exactly one edit in `updateNSView`.
+    var replacement = ""
+    var replaceCurrentToken = 0
+    var replaceAllToken = 0
 
     func makeNSView(context: Context) -> NSScrollView {
         // Build the TextKit 1 stack explicitly so the layout-manager-based gutter
@@ -308,6 +323,22 @@ struct LineNumberEditorWrapper: NSViewRepresentable {
             scrollToLine(line, in: textView)
         }
 
+        // Replace requests — a bumped token performs one edit, then falls through to the
+        // find-highlight pass below, which recomputes matches over the new text.
+        if replaceCurrentToken != context.coordinator.lastReplaceCurrentToken {
+            context.coordinator.lastReplaceCurrentToken = replaceCurrentToken
+            textView.replaceMatch(
+                at: findCurrentIndex,
+                query: findQuery,
+                options: findOptions,
+                with: replacement
+            )
+        }
+        if replaceAllToken != context.coordinator.lastReplaceAllToken {
+            context.coordinator.lastReplaceAllToken = replaceAllToken
+            textView.replaceAllMatches(query: findQuery, options: findOptions, with: replacement)
+        }
+
         // Find highlighting — only re-apply when a find-relevant input (or the text) changed,
         // so unrelated updates don't re-scroll or thrash the layout manager.
         var findHasher = Hasher()
@@ -343,7 +374,7 @@ struct LineNumberEditorWrapper: NSViewRepresentable {
         guard lineNumber > 0 && lineNumber <= lines.count else { return }
 
         var charIndex = 0
-        for i in 0..<(lineNumber - 1) {
+        for i in 0 ..< (lineNumber - 1) {
             charIndex += lines[i].count + 1
         }
 
@@ -354,9 +385,11 @@ struct LineNumberEditorWrapper: NSViewRepresentable {
     class Coordinator: NSObject, NSTextViewDelegate {
         var parent: LineNumberEditorWrapper
         var isEditing = false
-        var lastSyncedLine: Int? = nil
-        var lastSetText: String = ""
-        var lastFindSignature: Int = 0
+        var lastSyncedLine: Int?
+        var lastSetText = ""
+        var lastFindSignature = 0
+        var lastReplaceCurrentToken = 0
+        var lastReplaceAllToken = 0
 
         init(_ parent: LineNumberEditorWrapper) {
             self.parent = parent

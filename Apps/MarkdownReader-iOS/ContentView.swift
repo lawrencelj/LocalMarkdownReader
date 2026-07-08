@@ -1,13 +1,13 @@
-/// ContentView - iOS main application interface
-///
-/// Implements the primary iOS user interface with adaptive navigation,
-/// platform-specific interactions, and full ViewerUI integration.
-/// Follows iOS Human Interface Guidelines and ADR-002 specifications.
+// ContentView - iOS main application interface
+//
+// Implements the primary iOS user interface with adaptive navigation,
+// platform-specific interactions, and full ViewerUI integration.
+// Follows iOS Human Interface Guidelines and ADR-002 specifications.
 
+import FileAccess
+import MarkdownCore
 import SwiftUI
 import ViewerUI
-import MarkdownCore
-import FileAccess
 
 /// Main iOS application interface with adaptive layout
 struct ContentView: View {
@@ -102,8 +102,6 @@ struct ContentView: View {
         } content: {
             if horizontalSizeClass == .regular {
                 contentColumnView
-            } else {
-                EmptyView()
             }
         } detail: {
             documentContentView
@@ -162,8 +160,7 @@ struct ContentView: View {
 
     // MARK: - Content Column (iPad Three-Column)
 
-    @ViewBuilder
-    private var contentColumnView: some View {
+    @ViewBuilder private var contentColumnView: some View {
         switch selectedNavigation {
         case .outline:
             NavigationSidebar()
@@ -189,36 +186,33 @@ struct ContentView: View {
 
     // MARK: - Document Content
 
-    private var documentContentView: some View {
-        Group {
-            if coordinator.documentState.currentDocument != nil {
-                DocumentViewer()
-                    .navigationTitle(documentTitle)
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        if !useTabNavigation {
-                            documentToolbar
-                        }
+    @ViewBuilder private var documentContentView: some View {
+        if coordinator.documentState.currentDocument != nil {
+            DocumentViewer()
+                .navigationTitle(documentTitle)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    if !useTabNavigation {
+                        documentToolbar
                     }
-            } else {
-                EmptyStateView.noDocument(
-                    onOpenDocument: {
-                        showingDocumentPicker = true
-                    },
-                    onBrowseRecent: {
-                        selectedNavigation = .recent
-                    }
-                )
-                .navigationTitle("Markdown Reader")
-                .navigationBarTitleDisplayMode(.large)
-            }
+                }
+        } else {
+            EmptyStateView.noDocument(
+                onOpenDocument: {
+                    showingDocumentPicker = true
+                },
+                onBrowseRecent: {
+                    selectedNavigation = .recent
+                }
+            )
+            .navigationTitle("Markdown Reader")
+            .navigationBarTitleDisplayMode(.large)
         }
     }
 
     // MARK: - Document Toolbar
 
-    @ToolbarContentBuilder
-    private var documentToolbar: some ToolbarContent {
+    @ToolbarContentBuilder private var documentToolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .navigationBarTrailing) {
             if coordinator.documentState.currentDocument != nil {
                 Button {
@@ -303,11 +297,11 @@ struct ContentView: View {
 // MARK: - Navigation Destinations
 
 enum NavigationDestination: String, CaseIterable {
-    case document = "document"
-    case outline = "outline"
-    case search = "search"
-    case recent = "recent"
-    case settings = "settings"
+    case document
+    case outline
+    case search
+    case recent
+    case settings
 
     var title: String {
         switch self {

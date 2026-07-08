@@ -9,8 +9,11 @@ on:
     types: [ published ]
 
 env:
-  SWIFT_VERSION: '5.9'
-  XCODE_VERSION: '15.0'
+  # The package targets macOS 15 and imports the Translation framework, which
+  # requires the macOS 15 SDK shipped with Xcode 16. Runners are pinned to
+  # macos-15 accordingly.
+  SWIFT_VERSION: '6.0'
+  XCODE_VERSION: '16.1'
 
 jobs:
   # ============================================================================
@@ -19,15 +22,15 @@ jobs:
 
   code-quality:
     name: 🔍 Code Quality & Security
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Swift
-        uses: swift-actions/setup-swift@v1
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
         with:
-          swift-version: ${{ env.SWIFT_VERSION }}
+          xcode-version: ${{ env.XCODE_VERSION }}
 
       - name: Cache Swift Dependencies
         uses: actions/cache@v4
@@ -59,8 +62,10 @@ jobs:
 
       - name: Security Scan - Dependencies
         run: |
+          # Emits the resolved dependency graph as an artifact for review.
+          # NOTE: automated vulnerability scanning (e.g. OWASP dependency-check)
+          # is not wired up yet, so this step reports but does not gate.
           swift package show-dependencies --format json > dependencies.json
-          # TODO: Integrate with OWASP dependency check or similar security scanning
 
       - name: Build for Analysis
         run: swift build --configuration debug
@@ -71,11 +76,12 @@ jobs:
 
   test-matrix:
     name: 🧪 Test Suite
-    runs-on: macos-14
+    runs-on: macos-15
     needs: code-quality
     strategy:
       matrix:
-        platform: [iOS, macOS]
+        # The package ships a single macOS executable product; there is no iOS
+        # product/target, so the matrix is macOS-only.
         configuration: [debug, release]
     steps:
       - name: Checkout
@@ -90,27 +96,20 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build
-          key: ${{ runner.os }}-swift-${{ matrix.platform }}-${{ matrix.configuration }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
+          key: ${{ runner.os }}-swift-${{ matrix.configuration }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
           restore-keys: |
-            ${{ runner.os }}-swift-${{ matrix.platform }}-
             ${{ runner.os }}-swift-
 
       - name: Run Unit Tests
         run: |
-          if [ "${{ matrix.platform }}" == "iOS" ]; then
-            swift test --configuration ${{ matrix.configuration }} \
-              --enable-code-coverage \
-              --parallel
-          else
-            swift test --configuration ${{ matrix.configuration }} \
-              --enable-code-coverage \
-              --parallel
-          fi
+          swift test --configuration ${{ matrix.configuration }} \
+            --enable-code-coverage \
+            --parallel
 
       - name: Generate Coverage Report
         run: |
           xcrun llvm-cov export \
-            .build/${{ matrix.configuration }}/MarkdownReaderPackageTests.xctest/Contents/MacOS/MarkdownReaderPackageTests \
+            .build/${{ matrix.configuration }}/SwiftMarkdownReaderPackageTests.xctest/Contents/MacOS/SwiftMarkdownReaderPackageTests \
             --format="lcov" \
             --instr-profile .build/${{ matrix.configuration }}/codecov/default.profdata \
             > coverage.lcov
@@ -119,7 +118,7 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           file: coverage.lcov
-          flags: ${{ matrix.platform }}-${{ matrix.configuration }}
+          flags: macOS-${{ matrix.configuration }}
           fail_ci_if_error: true
 
   # ============================================================================
@@ -128,7 +127,7 @@ jobs:
 
   performance-test:
     name: ⚡ Performance & Accessibility
-    runs-on: macos-14
+    runs-on: macos-15
     needs: test-matrix
     steps:
       - name: Checkout
@@ -142,22 +141,16 @@ jobs:
       - name: Build Release Configuration
         run: swift build --configuration release
 
-      - name: Performance Benchmark Tests
-        run: |
-          echo "🎯 Running performance benchmarks..."
-          # TODO: Implement performance benchmarks
-          # - Document parsing speed (target: <100ms for 1MB documents)
-          # - Memory usage validation (target: <50MB typical usage)
-          # - Search performance (target: <100ms response time)
+      # NOTE: The following are NOT enforced quality gates yet. They are declared
+      # placeholders so the pipeline does not overstate its validation coverage.
+      # Targets to implement:
+      #   Performance  - parsing <100ms/1MB, memory <50MB typical, search <100ms
+      #   Accessibility- VoiceOver, Dynamic Type, high-contrast, WCAG 2.1 AA
+      - name: Performance Benchmarks (placeholder - not enforced)
+        run: echo "::notice::Performance benchmark gate is not implemented yet; no thresholds are enforced."
 
-      - name: Accessibility Validation
-        run: |
-          echo "♿ Running accessibility tests..."
-          # TODO: Implement automated accessibility testing
-          # - VoiceOver compatibility
-          # - Dynamic Type support
-          # - High contrast theme validation
-          # - WCAG 2.1 AA compliance
+      - name: Accessibility Validation (placeholder - not enforced)
+        run: echo "::notice::Automated accessibility gate is not implemented yet; no checks are enforced."
 
   # ============================================================================
   # QUALITY GATES STAGE 6-7: Build Artifacts & Documentation
@@ -165,11 +158,11 @@ jobs:
 
   build-artifacts:
     name: 📦 Build & Package
-    runs-on: macos-14
+    runs-on: macos-15
     needs: [test-matrix, performance-test]
     strategy:
       matrix:
-        platform: [iOS, macOS]
+        # macOS-only: the package exposes a single MarkdownReader-macOS product.
         configuration: [debug, release]
     steps:
       - name: Checkout
@@ -180,35 +173,16 @@ jobs:
         with:
           xcode-version: ${{ env.XCODE_VERSION }}
 
-      - name: Setup Build Environment
-        run: |
-          # Import signing certificates for release builds
-          if [ "${{ matrix.configuration }}" == "release" ]; then
-            echo "🔐 Setting up code signing..."
-            # TODO: Configure code signing for App Store distribution
-          fi
-
       - name: Build Application
         run: |
-          if [ "${{ matrix.platform }}" == "iOS" ]; then
-            swift build --configuration ${{ matrix.configuration }} \
-              --product MarkdownReader-iOS
-          else
-            swift build --configuration ${{ matrix.configuration }} \
-              --product MarkdownReader-macOS
-          fi
-
-      - name: Create App Bundle
-        if: matrix.configuration == 'release'
-        run: |
-          echo "📱 Creating app bundle for ${{ matrix.platform }}..."
-          # TODO: Create proper .app bundles with Info.plist and resources
+          swift build --configuration ${{ matrix.configuration }} \
+            --product MarkdownReader-macOS
 
       - name: Archive Build Artifacts
         if: matrix.configuration == 'release'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.platform }}-${{ matrix.configuration }}-build
+          name: macOS-${{ matrix.configuration }}-build
           path: |
             .build/${{ matrix.configuration }}/
           retention-days: 30
@@ -219,16 +193,16 @@ jobs:
 
   documentation:
     name: 📚 Documentation
-    runs-on: macos-14
+    runs-on: macos-15
     needs: code-quality
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Swift
-        uses: swift-actions/setup-swift@v1
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
         with:
-          swift-version: ${{ env.SWIFT_VERSION }}
+          xcode-version: ${{ env.XCODE_VERSION }}
 
       - name: Generate DocC Documentation
         run: |
@@ -253,12 +227,9 @@ jobs:
 
   deploy:
     name: 🚀 Deploy
-    runs-on: macos-14
+    runs-on: macos-15
     needs: [build-artifacts, documentation]
     if: github.event_name == 'release'
-    strategy:
-      matrix:
-        platform: [iOS, macOS]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -266,20 +237,13 @@ jobs:
       - name: Download Build Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: ${{ matrix.platform }}-release-build
+          name: macOS-release-build
           path: ./artifacts
 
-      - name: Deploy to TestFlight
-        if: matrix.platform == 'iOS'
-        run: |
-          echo "🚀 Deploying iOS app to TestFlight..."
-          # TODO: Implement TestFlight deployment using fastlane
-
       - name: Deploy macOS App
-        if: matrix.platform == 'macOS'
         run: |
           echo "🚀 Preparing macOS app for distribution..."
-          # TODO: Implement macOS app notarization and distribution
+          # NOTE: macOS notarization/distribution is not yet automated.
 
   # ============================================================================
   # QUALITY MONITORING
@@ -287,23 +251,14 @@ jobs:
 
   quality-monitoring:
     name: 📊 Quality Metrics
-    runs-on: macos-14
+    runs-on: macos-15
     needs: [build-artifacts, documentation]
     if: always()
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Collect Quality Metrics
-        run: |
-          echo "📊 Collecting quality metrics..."
-          # TODO: Implement quality metrics collection
-          # - Build time tracking
-          # - Test coverage analysis
-          # - Code quality trends
-          # - Security posture assessment
-
-      - name: Update Quality Dashboard
-        run: |
-          echo "📈 Updating quality dashboard..."
-          # TODO: Update quality dashboard with latest metrics
+      # NOTE: Quality-metrics collection and dashboarding are not implemented.
+      # This job is a placeholder and enforces nothing.
+      - name: Quality Metrics (placeholder - not enforced)
+        run: echo "::notice::Quality metrics collection/dashboard is not implemented yet."

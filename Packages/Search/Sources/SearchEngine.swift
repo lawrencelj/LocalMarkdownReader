@@ -1,7 +1,7 @@
-/// SearchEngine - Core search functionality
-///
-/// High-performance in-memory search engine optimized for <100ms response times
-/// with full-text indexing and relevance scoring.
+// SearchEngine - Core search functionality
+//
+// High-performance in-memory search engine optimized for <100ms response times
+// with full-text indexing and relevance scoring.
 
 import Foundation
 import MarkdownCore
@@ -15,7 +15,7 @@ public actor SearchEngine {
     private var isIndexing = false
 
     public init() {
-        self.searchIndex = SearchIndex()
+        searchIndex = SearchIndex()
     }
 
     // MARK: - Document Management
@@ -91,7 +91,7 @@ public actor SearchEngine {
 
     /// Generate outline from document
     public func generateOutline(from document: DocumentModel) async throws -> [OutlineItem] {
-        return document.outline.map { heading in
+        document.outline.map { heading in
             OutlineItem(
                 level: heading.level,
                 title: heading.title,
@@ -111,7 +111,7 @@ public actor SearchEngine {
 
     /// Get search statistics
     public func getStatistics() async -> SearchStatistics {
-        return await searchIndex.getStatistics()
+        await searchIndex.getStatistics()
     }
 
     // MARK: - Real-time Search
@@ -130,7 +130,7 @@ public actor SearchEngine {
 
     /// Get search suggestions based on partial query
     public func getSearchSuggestions(for partialQuery: String) async -> [String] {
-        return await searchIndex.getSuggestions(for: partialQuery)
+        await searchIndex.getSuggestions(for: partialQuery)
     }
 }
 
@@ -231,12 +231,17 @@ private actor SearchIndex {
         }
 
         // Convert to search results with scoring
-        let results = await convertToSearchResults(
+        var results = await convertToSearchResults(
             matchingTerms: matchingTerms,
             query: query,
             options: options,
             documents: documents
         )
+
+        // Honor the headings-only option by dropping non-heading matches.
+        if options.searchHeadingsOnly {
+            results = results.filter { $0.matchType == .heading }
+        }
 
         // Sort by relevance and limit results
         let sortedResults = results
@@ -259,7 +264,7 @@ private actor SearchIndex {
 
     /// Get search statistics
     func getStatistics() async -> SearchStatistics {
-        return SearchStatistics(
+        SearchStatistics(
             documentsIndexed: statistics.documentsIndexed,
             totalSearchTerms: statistics.totalTerms,
             averageSearchTime: statistics.averageSearchTime,
@@ -326,7 +331,7 @@ private actor SearchIndex {
 
     private func extractContext(from line: String, around word: String) -> String {
         // Extract context around the word (simplified implementation)
-        return line.trimmingCharacters(in: .whitespacesAndNewlines)
+        line.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func processSearchQuery(_ query: String, options: SearchOptions) -> [String] {
@@ -351,10 +356,8 @@ private actor SearchIndex {
         } else {
             // Partial matching
             var allMatches: Set<SearchTerm> = Set()
-            for (indexTerm, searchTerms) in termIndex {
-                if indexTerm.contains(queryTerm) {
-                    allMatches.formUnion(searchTerms)
-                }
+            for (indexTerm, searchTerms) in termIndex where indexTerm.contains(queryTerm) {
+                allMatches.formUnion(searchTerms)
             }
             return allMatches.isEmpty ? nil : allMatches
         }
@@ -424,7 +427,7 @@ private actor SearchIndex {
         query: String,
         document: DocumentModel
     ) -> Double {
-        var score: Double = 0.0
+        var score = 0.0
 
         // Base score for exact match
         if term.term.lowercased() == query.lowercased() {
@@ -476,7 +479,7 @@ private actor SearchIndex {
     }
 
     private func calculateIndexSize() -> Int {
-        return termIndex.values.reduce(0) { total, termSet in
+        termIndex.values.reduce(0) { total, termSet in
             total + termSet.count
         }
     }
@@ -502,8 +505,8 @@ private struct SearchTerm: Hashable, Sendable {
 
     static func == (lhs: SearchTerm, rhs: SearchTerm) -> Bool {
         lhs.documentId == rhs.documentId &&
-        lhs.term == rhs.term &&
-        lhs.position == rhs.position
+            lhs.term == rhs.term &&
+            lhs.position == rhs.position
     }
 }
 
@@ -519,12 +522,12 @@ private struct Token {
 
 /// Search index statistics
 private struct SearchIndexStatistics {
-    var documentsIndexed: Int = 0
-    var totalTerms: Int = 0
-    var searchCount: Int = 0
+    var documentsIndexed = 0
+    var totalTerms = 0
+    var searchCount = 0
     var totalSearchTime: TimeInterval = 0
     var averageSearchTime: TimeInterval = 0
-    var lastIndexUpdate: Date = Date()
+    var lastIndexUpdate = Date()
 }
 
 /// Search performance monitor

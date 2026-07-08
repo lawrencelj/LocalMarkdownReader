@@ -1,8 +1,8 @@
-/// NavigationSidebar - Document outline and navigation component
+// NavigationSidebar - Document outline and navigation component
 
-import SwiftUI
 import MarkdownCore
 import Search
+import SwiftUI
 
 /// Main navigation sidebar component with outline generation
 public struct NavigationSidebar: View {
@@ -10,7 +10,7 @@ public struct NavigationSidebar: View {
 
     @State private var expandedSections: Set<String> = []
     @State private var selectedHeading: String?
-    @State private var filterText: String = ""
+    @State private var filterText = ""
 
     public init() {}
 
@@ -58,8 +58,7 @@ public struct NavigationSidebar: View {
         .padding(.vertical, 10)
     }
 
-    @ViewBuilder
-    private var outlineContent: some View {
+    @ViewBuilder private var outlineContent: some View {
         if coordinator.documentState.currentDocument == nil {
             emptyDocumentView
         } else if coordinator.searchState.outline.isEmpty {
@@ -100,7 +99,8 @@ public struct NavigationSidebar: View {
 
                 // Title
                 Text(item.title)
-                    .font(item.level == 1 ? .body.weight(.semibold) : (item.level == 2 ? .callout.weight(.medium) : .callout))
+                    .font(item.level == 1 ? .body
+                        .weight(.semibold) : (item.level == 2 ? .callout.weight(.medium) : .callout))
                     .foregroundStyle(selectedHeading == item.id ? .white : .primary)
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -155,8 +155,8 @@ public struct NavigationSidebar: View {
                     ? "No JSON or XML structure could be extracted"
                     : "This document has no headings"
             )
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(24)

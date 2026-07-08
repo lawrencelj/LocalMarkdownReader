@@ -1,14 +1,14 @@
-/// PerformanceTests - 60fps UI performance validation
-///
-/// Comprehensive performance testing suite validating frame rate maintenance,
-/// memory efficiency, scroll performance, and load time optimization across
-/// various document sizes and complexity scenarios.
+// PerformanceTests - 60fps UI performance validation
+//
+// Comprehensive performance testing suite validating frame rate maintenance,
+// memory efficiency, scroll performance, and load time optimization across
+// various document sizes and complexity scenarios.
 
-import XCTest
-import SwiftUI
-@testable import ViewerUI
 @testable import MarkdownCore
 @testable import Search
+import SwiftUI
+@testable import ViewerUI
+import XCTest
 
 @MainActor
 final class PerformanceTests: XCTestCase {
@@ -20,8 +20,8 @@ final class PerformanceTests: XCTestCase {
     // MARK: - Performance Thresholds
 
     private let maxLoadTime: TimeInterval = 2.0 // 2 seconds for 1MB documents
-    private let maxMemoryUsage: Int = 150 * 1024 * 1024 // 150MB for 2MB documents
-    private let minFrameRate: Double = 58.0 // Near 60fps threshold
+    private let maxMemoryUsage = 150 * 1024 * 1024 // 150MB for 2MB documents
+    private let minFrameRate = 58.0 // Near 60fps threshold
     private let maxScrollLatency: TimeInterval = 0.016 // One frame at 60fps
 
     // MARK: - Setup & Teardown
@@ -40,7 +40,7 @@ final class PerformanceTests: XCTestCase {
 
     // MARK: - Document Loading Performance Tests
 
-    func testSmallDocumentLoadTime() async throws {
+    func testSmallDocumentLoadTime() async {
         // Given - Document under 100KB
         let smallDocument = createMockDocument(size: .small)
         let mockService = MockDocumentService()
@@ -58,7 +58,7 @@ final class PerformanceTests: XCTestCase {
         XCTAssertLessThan(loadTime, 1.0, "Small documents should load in under 1 second")
     }
 
-    func testMediumDocumentLoadTime() async throws {
+    func testMediumDocumentLoadTime() async {
         // Given - Document around 1MB
         let mediumDocument = createMockDocument(size: .medium)
         let mockService = MockDocumentService()
@@ -76,7 +76,7 @@ final class PerformanceTests: XCTestCase {
         XCTAssertLessThan(loadTime, maxLoadTime, "Medium documents should load within 2 seconds")
     }
 
-    func testLargeDocumentLoadTime() async throws {
+    func testLargeDocumentLoadTime() async {
         // Given - Document around 2MB
         let largeDocument = createMockDocument(size: .large)
         let mockService = MockDocumentService()
@@ -96,7 +96,7 @@ final class PerformanceTests: XCTestCase {
 
     // MARK: - Memory Usage Tests
 
-    func testMemoryUsageWithSmallDocument() async throws {
+    func testMemoryUsageWithSmallDocument() async {
         // Given
         let smallDocument = createMockDocument(size: .small)
         let mockService = MockDocumentService()
@@ -114,7 +114,7 @@ final class PerformanceTests: XCTestCase {
         XCTAssertLessThan(memoryIncrease, 50 * 1024 * 1024, "Small document should use under 50MB")
     }
 
-    func testMemoryUsageWithLargeDocument() async throws {
+    func testMemoryUsageWithLargeDocument() async {
         // Given
         let largeDocument = createMockDocument(size: .large)
         let mockService = MockDocumentService()
@@ -132,7 +132,7 @@ final class PerformanceTests: XCTestCase {
         XCTAssertLessThan(memoryIncrease, maxMemoryUsage, "Large document should use under 150MB")
     }
 
-    func testMemoryLeaks() async throws {
+    func testMemoryLeaks() async {
         // Given
         let document = createMockDocument(size: .medium)
         let mockService = MockDocumentService()
@@ -143,7 +143,7 @@ final class PerformanceTests: XCTestCase {
         // When - Load and unload document multiple times
         let initialMemory = getCurrentMemoryUsage()
 
-        for _ in 0..<5 {
+        for _ in 0 ..< 5 {
             await coordinator.loadDocument(DocumentReference.mock())
             coordinator.closeDocument()
         }
@@ -245,7 +245,7 @@ final class PerformanceTests: XCTestCase {
 
     // MARK: - Search Performance Tests
 
-    func testSearchPerformance() async throws {
+    func testSearchPerformance() async {
         // Given
         let largeDocument = createMockDocument(size: .large)
         let mockService = MockSearchService()
@@ -264,7 +264,7 @@ final class PerformanceTests: XCTestCase {
         XCTAssertLessThan(searchTime, 0.1, "Search should complete within 100ms")
     }
 
-    func testIncrementalSearchPerformance() async throws {
+    func testIncrementalSearchPerformance() async {
         // Given
         let document = createMockDocument(size: .medium)
         let mockService = MockSearchService()
@@ -275,7 +275,7 @@ final class PerformanceTests: XCTestCase {
         let query = "testing"
         var searchTimes: [TimeInterval] = []
 
-        for i in 1...query.count {
+        for i in 1 ... query.count {
             let partialQuery = String(query.prefix(i))
             let startTime = CFAbsoluteTimeGetCurrent()
             await coordinator.performSearch(partialQuery)
@@ -322,7 +322,7 @@ final class PerformanceTests: XCTestCase {
 
     // MARK: - State Management Performance Tests
 
-    func testStateUpdatePerformance() async throws {
+    func testStateUpdatePerformance() {
         // Given
         let document = createMockDocument(size: .medium)
         coordinator.documentState.currentDocument = document
@@ -330,7 +330,7 @@ final class PerformanceTests: XCTestCase {
         // When
         measure(metrics: [XCTCPUMetric()]) {
             // Simulate rapid state updates
-            for i in 0..<100 {
+            for i in 0 ..< 100 {
                 coordinator.documentState.scrollPosition = CGFloat(i * 10)
             }
         }
@@ -338,14 +338,14 @@ final class PerformanceTests: XCTestCase {
         // Then - Measured by XCTest framework
     }
 
-    func testConcurrentStateAccess() async throws {
+    func testConcurrentStateAccess() async {
         // Given
         let document = createMockDocument(size: .medium)
         coordinator.documentState.currentDocument = document
 
         // When - Test concurrent access to state
         await withTaskGroup(of: Void.self) { group in
-            for i in 0..<10 {
+            for i in 0 ..< 10 {
                 group.addTask {
                     await self.coordinator.saveScrollPosition(CGFloat(i * 50))
                 }
@@ -389,7 +389,7 @@ final class PerformanceTests: XCTestCase {
     private func measureScrollLatency() -> [TimeInterval] {
         var latencies: [TimeInterval] = []
 
-        for i in 0..<10 {
+        for i in 0 ..< 10 {
             let startTime = CFAbsoluteTimeGetCurrent()
 
             // Simulate scroll input
@@ -405,14 +405,16 @@ final class PerformanceTests: XCTestCase {
 
     private func getCurrentMemoryUsage() -> Int {
         var info = mach_task_basic_info()
-        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size)/4
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
 
         let kerr: kern_return_t = withUnsafeMutablePointer(to: &info) {
             $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
-                task_info(mach_task_self_,
-                         task_flavor_t(MACH_TASK_BASIC_INFO),
-                         $0,
-                         &count)
+                task_info(
+                    mach_task_self_,
+                    task_flavor_t(MACH_TASK_BASIC_INFO),
+                    $0,
+                    &count
+                )
             }
         }
 
@@ -426,9 +428,9 @@ final class PerformanceTests: XCTestCase {
     // MARK: - Mock Data Creation
 
     private enum DocumentSize {
-        case small  // ~100KB
+        case small // ~100KB
         case medium // ~1MB
-        case large  // ~2MB
+        case large // ~2MB
     }
 
     private func createMockDocument(size: DocumentSize) -> DocumentModel {
@@ -449,7 +451,10 @@ final class PerformanceTests: XCTestCase {
         case .large: multiplier = 2000
         }
 
-        let content = baseContent + String(repeating: "\n\nAdditional content paragraph with meaningful text that simulates real document content.", count: multiplier)
+        let content = baseContent + String(
+            repeating: "\n\nAdditional content paragraph with meaningful text that simulates real document content.",
+            count: multiplier
+        )
 
         return DocumentModel(
             id: UUID(),
@@ -505,7 +510,7 @@ final class PerformanceTests: XCTestCase {
     }
 
     private func createMockSearchResults(count: Int) -> [SearchResult] {
-        return (0..<count).map { index in
+        (0 ..< count).map { index in
             SearchResult(
                 id: UUID(),
                 matchedText: "test",
@@ -567,14 +572,16 @@ class PerformanceMonitor {
 
     func getCurrentMemoryUsage() -> Int {
         var info = mach_task_basic_info()
-        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size)/4
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
 
         let kerr: kern_return_t = withUnsafeMutablePointer(to: &info) {
             $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
-                task_info(mach_task_self_,
-                         task_flavor_t(MACH_TASK_BASIC_INFO),
-                         $0,
-                         &count)
+                task_info(
+                    mach_task_self_,
+                    task_flavor_t(MACH_TASK_BASIC_INFO),
+                    $0,
+                    &count
+                )
             }
         }
 

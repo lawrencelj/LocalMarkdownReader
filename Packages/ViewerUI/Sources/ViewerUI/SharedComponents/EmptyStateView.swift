@@ -1,4 +1,4 @@
-/// EmptyStateView - Contextual empty state display with guidance
+// EmptyStateView - Contextual empty state display with guidance
 
 import SwiftUI
 
@@ -82,8 +82,8 @@ public struct EmptyStateAction {
 
 // MARK: - Predefined Empty States
 
-extension EmptyStateView {
-    public static func noDocument(
+public extension EmptyStateView {
+    static func noDocument(
         onOpenDocument: @escaping () -> Void,
         onBrowseRecent: (() -> Void)? = nil
     ) -> EmptyStateView {
@@ -100,7 +100,7 @@ extension EmptyStateView {
         )
     }
 
-    public static func noSearchResults(
+    static func noSearchResults(
         query: String,
         onClearSearch: @escaping () -> Void,
         onModifyQuery: (() -> Void)? = nil

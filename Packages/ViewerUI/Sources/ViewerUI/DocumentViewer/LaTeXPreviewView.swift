@@ -31,7 +31,7 @@ struct LaTeXBlock: Identifiable, Equatable {
         startLine: Int,
         ordinal: Int
     ) {
-        self.id = "latex-\(startLine)-\(ordinal)"
+        id = "latex-\(startLine)-\(ordinal)"
         self.kind = kind
         self.content = content
         self.items = items
@@ -362,7 +362,7 @@ enum LaTeXParser {
             } else if character == "}" {
                 depth -= 1
                 if depth == 0 {
-                    return String(source[source.index(after: opening)..<index])
+                    return String(source[source.index(after: opening) ..< index])
                 }
             }
             index = source.index(after: index)
@@ -544,12 +544,12 @@ enum LaTeXInlineFormatter {
         let marker = "\\\(command)"
 
         while searchStart < result.endIndex,
-              let commandRange = result.range(of: marker, range: searchStart..<result.endIndex) {
+              let commandRange = result.range(of: marker, range: searchStart ..< result.endIndex) {
             var cursor = commandRange.upperBound
             var arguments: [String] = []
             var end = cursor
 
-            for _ in 0..<argumentCount {
+            for _ in 0 ..< argumentCount {
                 while cursor < result.endIndex && result[cursor].isWhitespace {
                     cursor = result.index(after: cursor)
                 }
@@ -571,7 +571,7 @@ enum LaTeXInlineFormatter {
                 from: result.startIndex,
                 to: commandRange.lowerBound
             )
-            result.replaceSubrange(commandRange.lowerBound..<end, with: replacement)
+            result.replaceSubrange(commandRange.lowerBound ..< end, with: replacement)
             searchStart = result.index(
                 result.startIndex,
                 offsetBy: min(result.count, replacementOffset + replacement.count)
@@ -594,7 +594,7 @@ enum LaTeXInlineFormatter {
             } else if character == "}" {
                 depth -= 1
                 if depth == 0 {
-                    let value = String(source[source.index(after: openingBrace)..<index])
+                    let value = String(source[source.index(after: openingBrace) ..< index])
                     return (value, source.index(after: index))
                 }
             }
@@ -684,7 +684,7 @@ struct LaTeXPreviewView: View {
                 .font(.system(size: 14 * sizeMultiplier, design: .serif))
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
-        case .section(let level):
+        case let .section(level):
             Text(LaTeXInlineFormatter.attributedString(from: block.content))
                 .font(sectionFont(level: level, multiplier: sizeMultiplier))
                 .foregroundStyle(themeManager.color(for: .primary))
@@ -706,7 +706,7 @@ struct LaTeXPreviewView: View {
                     .padding(.horizontal, 16)
                     .frame(maxWidth: .infinity, alignment: .center)
             }
-        case .code(let language):
+        case let .code(language):
             VStack(alignment: .leading, spacing: 6) {
                 if let language, !language.isEmpty {
                     Text(language.uppercased())

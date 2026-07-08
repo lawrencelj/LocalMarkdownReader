@@ -1,13 +1,12 @@
-/// CoordinatorFunctionalTests - Verifies AppStateCoordinator functions
+// CoordinatorFunctionalTests - Verifies AppStateCoordinator functions
 
-import XCTest
-@testable import ViewerUI
 @testable import MarkdownCore
 @testable import Search
+@testable import ViewerUI
+import XCTest
 
 @MainActor
 final class CoordinatorFunctionalTests: XCTestCase {
-
     var coordinator: AppStateCoordinator!
 
     override func setUp() async throws {
@@ -404,7 +403,7 @@ final class CoordinatorFunctionalTests: XCTestCase {
     }
 
     func testRecentFilesLimit() async {
-        for i in 0..<25 {
+        for i in 0 ..< 25 {
             let ref = DocumentReference(url: URL(fileURLWithPath: "/tmp/file\(i).md"), fileSize: 100)
             await coordinator.userPreferences.addRecentFile(ref)
         }

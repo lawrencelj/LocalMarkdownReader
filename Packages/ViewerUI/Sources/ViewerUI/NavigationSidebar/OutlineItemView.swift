@@ -1,7 +1,7 @@
-/// OutlineItemView - Individual outline item with expansion and navigation
+// OutlineItemView - Individual outline item with expansion and navigation
 
-import SwiftUI
 import Search
+import SwiftUI
 
 /// Individual outline item view with hierarchy and interaction support
 struct OutlineItemView: View {
@@ -47,8 +47,7 @@ struct OutlineItemView: View {
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
-    @ViewBuilder
-    private var expansionButton: some View {
+    @ViewBuilder private var expansionButton: some View {
         if !item.children.isEmpty {
             Button(action: onToggleExpansion) {
                 Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
@@ -76,8 +75,7 @@ struct OutlineItemView: View {
         }
     }
 
-    @ViewBuilder
-    private var backgroundFill: some View {
+    @ViewBuilder private var backgroundFill: some View {
         if isSelected {
             Color.accentColor
         } else {

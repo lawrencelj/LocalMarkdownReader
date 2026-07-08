@@ -1,4 +1,4 @@
-/// LoadingIndicator - Reusable loading states with accessibility support
+// LoadingIndicator - Reusable loading states with accessibility support
 
 import SwiftUI
 
@@ -39,9 +39,9 @@ public struct LoadingIndicator: View {
 
 // MARK: - View Extension
 
-extension View {
+public extension View {
     /// Add loading overlay to any view
-    public func loadingOverlay(isLoading: Bool, message: String? = nil) -> some View {
+    func loadingOverlay(isLoading: Bool, message: String? = nil) -> some View {
         overlay {
             if isLoading {
                 ZStack {

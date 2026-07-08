@@ -1,7 +1,7 @@
-/// SecurityManager - Security-scoped bookmark management
-///
-/// Manages security-scoped bookmarks for sandboxed file access,
-/// ensuring secure and persistent file access across app sessions.
+// SecurityManager - Security-scoped bookmark management
+//
+// Manages security-scoped bookmarks for sandboxed file access,
+// ensuring secure and persistent file access across app sessions.
 
 import Foundation
 
@@ -120,7 +120,7 @@ public actor SecurityManager {
         let now = Date()
         let expirationInterval: TimeInterval = 60 * 60 // 1 hour
 
-        accessTracker = accessTracker.filter { (url, accessInfo) in
+        accessTracker = accessTracker.filter { url, accessInfo in
             let isExpired = now.timeIntervalSince(accessInfo.lastAccessed) > expirationInterval
 
             if isExpired && accessInfo.isActive {
@@ -134,7 +134,7 @@ public actor SecurityManager {
 
     /// Get access information for URL
     public func getAccessInfo(for url: URL) -> AccessInfo? {
-        return accessTracker[url]
+        accessTracker[url]
     }
 
     /// Validate bookmark is still valid
@@ -210,9 +210,9 @@ public enum SecurityError: Error, LocalizedError, Sendable {
         switch self {
         case .accessFailed:
             return "Failed to access security-scoped resource"
-        case .bookmarkCreationFailed(let underlying):
+        case let .bookmarkCreationFailed(underlying):
             return "Failed to create bookmark: \(underlying.localizedDescription)"
-        case .bookmarkResolutionFailed(let underlying):
+        case let .bookmarkResolutionFailed(underlying):
             return "Failed to resolve bookmark: \(underlying.localizedDescription)"
         case .bookmarkStale:
             return "Security-scoped bookmark is stale"
@@ -226,15 +226,15 @@ public enum SecurityError: Error, LocalizedError, Sendable {
 
 // MARK: - Security Manager Extensions
 
-extension SecurityManager {
+public extension SecurityManager {
     /// Batch validate multiple bookmarks
-    public func validateBookmarks(_ bookmarks: [Data]) -> [Bool] {
-        return bookmarks.map { validateBookmark($0) }
+    func validateBookmarks(_ bookmarks: [Data]) -> [Bool] {
+        bookmarks.map { validateBookmark($0) }
     }
 
     /// Create bookmarks for multiple URLs
-    public func createBookmarks(for urls: [URL]) -> [Result<Data, Error>] {
-        return urls.map { url in
+    func createBookmarks(for urls: [URL]) -> [Result<Data, Error>] {
+        urls.map { url in
             do {
                 let bookmark = try createBookmark(for: url)
                 return .success(bookmark)
@@ -245,7 +245,7 @@ extension SecurityManager {
     }
 
     /// Get statistics about current access tracking
-    public func getAccessStatistics() -> AccessStatistics {
+    func getAccessStatistics() -> AccessStatistics {
         let activeCount = accessTracker.values.filter { $0.isActive }.count
         let totalCount = accessTracker.count
 

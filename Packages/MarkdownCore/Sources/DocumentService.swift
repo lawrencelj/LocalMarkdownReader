@@ -1,7 +1,7 @@
-/// DocumentService - Main service interface for document operations
-///
-/// Provides the primary interface for document parsing, loading, and rendering
-/// operations expected by the frontend AppStateCoordinator.
+// DocumentService - Main service interface for document operations
+//
+// Provides the primary interface for document parsing, loading, and rendering
+// operations expected by the frontend AppStateCoordinator.
 
 import Foundation
 
@@ -12,22 +12,20 @@ public class DocumentService: ObservableObject {
     private let performanceMonitor: PerformanceMonitor
 
     public init(configuration: MarkdownParser.Configuration = .default) {
-        self.parser = MarkdownParser(configuration: configuration)
-        self.performanceMonitor = PerformanceMonitor.shared
+        parser = MarkdownParser(configuration: configuration)
+        performanceMonitor = PerformanceMonitor.shared
     }
 
     // MARK: - Frontend Interface Methods
 
     /// Load and parse a document from reference
     public func loadDocument(_ reference: DocumentReference) async throws -> DocumentModel {
-        return try await performanceMonitor.trackOperation("load_document") {
+        try await performanceMonitor.trackOperation("load_document") {
             // Read file content
             let content = try await loadFileContent(from: reference)
 
             // Parse the document
-            let document = try await parser.parseDocument(content: content, reference: reference)
-
-            return document
+            return try await parser.parseDocument(content: content, reference: reference)
         }
     }
 
@@ -47,25 +45,25 @@ public class DocumentService: ObservableObject {
         _ content: String,
         reference: DocumentReference
     ) async throws -> DocumentModel {
-        return try await parser.parseDocument(content: content, reference: reference)
+        try await parser.parseDocument(content: content, reference: reference)
     }
 
     /// Render document to AttributedString
     public func renderToAttributedString(_ document: DocumentModel) -> NSAttributedString {
         // Convert AttributedString to NSAttributedString
-        return NSAttributedString(document.attributedContent)
+        NSAttributedString(document.attributedContent)
     }
 
     /// Extract outline from document
     public func extractOutline(_ document: DocumentModel) -> [HeadingItem] {
-        return document.outline
+        document.outline
     }
 
     // MARK: - Additional Service Methods
 
     /// Refresh document from its source
     public func refreshDocument(_ document: DocumentModel) async throws -> DocumentModel {
-        return try await loadDocument(document.reference)
+        try await loadDocument(document.reference)
     }
 
     /// Validate document can be parsed
@@ -82,7 +80,7 @@ public class DocumentService: ObservableObject {
 
     /// Get document statistics
     public func getDocumentStatistics(_ document: DocumentModel) -> DocumentStatistics {
-        return DocumentStatistics(
+        DocumentStatistics(
             wordCount: document.metadata.wordCount,
             characterCount: document.metadata.characterCount,
             lineCount: document.metadata.lineCount,
@@ -148,8 +146,7 @@ public class DocumentService: ObservableObject {
 
         // Read file content
         do {
-            let content = try String(contentsOf: url, encoding: .utf8)
-            return content
+            return try String(contentsOf: url, encoding: .utf8)
         } catch let error as NSError {
             if error.code == NSFileReadNoSuchFileError {
                 throw DocumentError.fileNotFound
@@ -201,9 +198,9 @@ public struct DocumentStatistics: Sendable {
 
 // MARK: - Preview Support
 
-extension DocumentService {
+public extension DocumentService {
     /// Create a preview service for development
-    public static var preview: DocumentService {
-        return DocumentService(configuration: .default)
+    static var preview: DocumentService {
+        DocumentService(configuration: .default)
     }
 }

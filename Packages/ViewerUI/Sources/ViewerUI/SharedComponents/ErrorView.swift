@@ -1,4 +1,4 @@
-/// ErrorView - Comprehensive error display with recovery actions
+// ErrorView - Comprehensive error display with recovery actions
 
 import SwiftUI
 
