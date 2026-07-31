@@ -2,6 +2,23 @@
 
 All application and controlled design-document changes are recorded here. Entries are append-only.
 
+## 2026-07-31 — Version 1.0.4 (Build 5)
+
+### Category
+
+- Documentation and verification: translation lifecycle
+
+### Changes
+
+- Added the translation-session lessons-learned record covering document identity, cancellation, stale-response isolation, and required switching scenarios.
+- Recorded independent verification acceptance for translating a second document.
+
+### Validation
+
+- Independent verifier: ACCEPT.
+- Focused translation tests: 7/7 passed.
+- Full test suite previously passed with 0 failures on the implementation revision.
+
 ## 2026-07-31 — Version 1.0.3 (Build 4)
 
 ### Category
