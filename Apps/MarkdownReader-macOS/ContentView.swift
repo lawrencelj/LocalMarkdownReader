@@ -403,17 +403,6 @@ struct ContentView: View {
     // MARK: - Toolbar
 
     @ToolbarContentBuilder private var mainToolbar: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigation) {
-            Button {
-                withAnimation {
-                    columnVisibility = columnVisibility == .all ? .detailOnly : .all
-                }
-            } label: {
-                Image(systemName: "sidebar.left")
-            }
-            .help("Toggle Sidebar")
-        }
-
         ToolbarItemGroup(placement: .primaryAction) {
             Button {
                 createNewDocument()

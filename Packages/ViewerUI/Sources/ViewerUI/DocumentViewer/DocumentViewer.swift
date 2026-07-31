@@ -15,6 +15,7 @@ import Settings
 import SwiftUI
 
 #if os(macOS)
+    import CryptoKit
     import _Translation_SwiftUI
     import Translation
 #endif
@@ -27,6 +28,9 @@ public struct DocumentViewer: View {
     #if os(macOS)
         @State private var translationConfiguration: TranslationSession.Configuration?
         @State private var translationState = DocumentTranslationState()
+        @State private var translationCache = TranslationCache()
+        @State private var activeTranslationSession: TranslationSession?
+        @State private var translationRequestID = UUID()
     #endif
 
     // MARK: - Content Find State
@@ -65,6 +69,11 @@ public struct DocumentViewer: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #if os(macOS)
+        .onChange(of: coordinator.documentState.currentDocument?.id) { _, _ in
+            resetTranslation()
+        }
+        #endif
     }
 
     // MARK: - Loading
@@ -164,9 +173,6 @@ public struct DocumentViewer: View {
         .translationTask(translationConfiguration) { session in
             await translateDocument(using: session)
         }
-        .onChange(of: coordinator.documentState.currentDocument?.id) { _, _ in
-            resetTranslation()
-        }
         #endif
     }
 
@@ -201,7 +207,7 @@ public struct DocumentViewer: View {
                 if translationState.isTranslating {
                     ProgressView()
                         .controlSize(.small)
-                    Text("Translating whole document...")
+                    Text(translationState.progressText ?? "Preparing translation…")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else if let translationError = translationState.errorMessage {
@@ -217,15 +223,22 @@ public struct DocumentViewer: View {
                 Spacer()
 
                 Button {
-                    toggleTranslation()
+                    if translationState.isTranslating {
+                        cancelTranslation()
+                    } else {
+                        toggleTranslation()
+                    }
                 } label: {
                     Label(
-                        translationState.isShowingChinese ? "Show English" : "Translate to Chinese",
-                        systemImage: translationState.isShowingChinese ? "arrow.uturn.backward" : "character.bubble"
+                        translationState.isTranslating
+                            ? "Cancel"
+                            : (translationState.isShowingChinese ? "Show English" : "Translate to Chinese"),
+                        systemImage: translationState.isTranslating
+                            ? "xmark"
+                            : (translationState.isShowingChinese ? "arrow.uturn.backward" : "character.bubble")
                     )
                 }
                 .buttonStyle(.bordered)
-                .disabled(translationState.isTranslating)
                 .help(translationState.isShowingChinese
                     ? "Turn off translation and show the English document"
                     : "Translate the whole document to Simplified Chinese")
@@ -239,20 +252,62 @@ public struct DocumentViewer: View {
         }
 
         private func toggleTranslation() {
-            if translationState.toggle() == .startTranslation {
-                if translationConfiguration == nil {
+            guard translationState.toggle() == .startTranslation else { return }
+            guard let content = coordinator.documentState.currentDocument?.content else {
+                translationState.fail(with: "No document is available to translate.")
+                return
+            }
+
+            let cacheKey = translationCacheKey(for: content)
+            if let cached = translationCache.load(for: cacheKey) {
+                translationState.showCachedTranslation(cached)
+                return
+            }
+
+            let requestID = UUID()
+            translationRequestID = requestID
+            Task { @MainActor in
+                let availability = LanguageAvailability()
+                let source = Locale.Language(identifier: "en")
+                let target = Locale.Language(identifier: "zh-Hans")
+                let status = await availability.status(from: source, to: target)
+
+                guard requestID == translationRequestID else { return }
+
+                guard status != .unsupported else {
+                    translationState.fail(with: "English to Simplified Chinese is not available on this Mac.")
+                    return
+                }
+
+                if #available(macOS 26.4, *) {
                     translationConfiguration = TranslationSession.Configuration(
-                        source: Locale.Language(identifier: "en"),
-                        target: Locale.Language(identifier: "zh-Hans")
+                        source: source,
+                        target: target,
+                        preferredStrategy: .lowLatency
                     )
                 } else {
-                    translationConfiguration?.invalidate()
+                    translationConfiguration = TranslationSession.Configuration(
+                        source: source,
+                        target: target
+                    )
                 }
             }
         }
 
+        private func cancelTranslation() {
+            translationRequestID = UUID()
+            if #available(macOS 26.0, *) {
+                activeTranslationSession?.cancel()
+            }
+            translationConfiguration?.invalidate()
+            translationConfiguration = nil
+            activeTranslationSession = nil
+            translationState.cancel()
+        }
+
         @MainActor
         private func translateDocument(using session: TranslationSession) async {
+            let requestID = translationRequestID
             guard let content = coordinator.documentState.currentDocument?.content else {
                 translationState.fail(with: "No document is available to translate.")
                 return
@@ -266,26 +321,62 @@ public struct DocumentViewer: View {
                 )
             }
 
+            guard !requests.isEmpty else {
+                translationState.fail(with: "There is no translatable text in this document.")
+                return
+            }
+
+            translationState.beginTranslation(totalBlockCount: requests.count)
+            activeTranslationSession = session
+            defer {
+                if requestID == translationRequestID {
+                    activeTranslationSession = nil
+                }
+            }
+
             do {
-                let responses = try await session.translations(from: requests)
-                let translatedBlocks = [Int: String](
-                    uniqueKeysWithValues: responses.compactMap { response -> (Int, String)? in
-                        guard let identifier = response.clientIdentifier,
-                              let line = Int(identifier) else {
-                            return nil
-                        }
-                        return (line, response.targetText)
-                    }
-                )
+                var translatedBlocks: [Int: String] = [:]
+                for try await response in session.translate(batch: requests) {
+                    guard requestID == translationRequestID else { return }
+                    guard let identifier = response.clientIdentifier,
+                          let line = Int(identifier) else { continue }
+                    translatedBlocks[line] = response.targetText
+                    translationState.translatedBlockArrived(line: line, text: response.targetText)
+                }
+
+                guard requestID == translationRequestID else { return }
+
+                guard !translatedBlocks.isEmpty else {
+                    translationState.fail(with: "The translation returned no results.")
+                    return
+                }
+
+                translationCache.save(translatedBlocks, for: translationCacheKey(for: content))
                 translationState.complete(with: translatedBlocks)
+            } catch is CancellationError {
+                if requestID == translationRequestID {
+                    translationState.cancel()
+                }
             } catch {
-                translationState.fail(with: error.localizedDescription)
+                if requestID == translationRequestID {
+                    translationState.fail(with: error.localizedDescription)
+                }
             }
         }
 
         private func resetTranslation() {
+            translationRequestID = UUID()
+            if #available(macOS 26.0, *) {
+                activeTranslationSession?.cancel()
+            }
             translationConfiguration = nil
+            activeTranslationSession = nil
             translationState.reset()
+        }
+
+        private func translationCacheKey(for content: String) -> String {
+            let input = "en\u{1F}zh-Hans\u{1F}\(content)"
+            return SHA256.hash(data: Data(input.utf8)).map { String(format: "%02x", $0) }.joined()
         }
 
         /// The plain text offered to the translator for a block (nil if nothing to translate).
