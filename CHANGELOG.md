@@ -2,6 +2,22 @@
 
 All application and controlled design-document changes are recorded here. Entries are append-only.
 
+## 2026-07-31 — Version 1.0.3 (Build 4)
+
+### Category
+
+- Fix: Translation session lifecycle
+
+### Changes
+
+- Force the markdown/plain-text translation subtree to use the current document identity.
+- Ensure SwiftUI creates a fresh `TranslationSession` when translating a second document instead of reusing the completed first-document session.
+
+### Validation
+
+- Translation state tests: 7/7 passed.
+- macOS app build: passed.
+
 ## 2026-07-31 — Version 1.0.2 (Build 3)
 
 ### Category

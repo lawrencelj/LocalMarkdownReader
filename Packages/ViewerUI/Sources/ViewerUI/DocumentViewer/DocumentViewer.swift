@@ -122,7 +122,11 @@ public struct DocumentViewer: View {
             case .latex:
                 LaTeXPreviewView(content: document.content)
             case .markdown, .plainText:
+                // TranslationSession is lifecycle-bound to this subtree. A document
+                // identity prevents SwiftUI from reusing the completed first session
+                // when a second document is opened.
                 markdownDocumentContent
+                    .id("translation-document-\(document.id.uuidString)")
             }
         }
     }
