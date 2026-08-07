@@ -402,7 +402,7 @@ public struct DocumentViewer: View {
                         guard text.rangeOfCharacter(from: .letters) != nil else { continue }
                         units.append((
                             key: TranslationKey.tableCell(
-                                line: block.sourceLine,
+                                id: block.id,
                                 row: rowIndex,
                                 column: columnIndex
                             ),
@@ -415,12 +415,12 @@ public struct DocumentViewer: View {
             case .unorderedList, .orderedList:
                 let text = block.listItems.map { $0.plainText }.joined(separator: "\n")
                 guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
-                return [(key: TranslationKey.block(line: block.sourceLine), text: text)]
+                return [(key: TranslationKey.block(id: block.id), text: text)]
 
             default:
                 let text = block.plainText
                 guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
-                return [(key: TranslationKey.block(line: block.sourceLine), text: text)]
+                return [(key: TranslationKey.block(id: block.id), text: text)]
             }
         }
     #endif
@@ -448,7 +448,7 @@ public struct DocumentViewer: View {
                     cells.reserveCapacity(row.count)
                     for (columnIndex, cell) in row.enumerated() {
                         let key = TranslationKey.tableCell(
-                            line: block.sourceLine,
+                            id: block.id,
                             row: rowIndex,
                             column: columnIndex
                         )
@@ -471,7 +471,7 @@ public struct DocumentViewer: View {
 
             case .unorderedList, .orderedList:
                 guard let translated = translationState
-                    .translatedBlocks[TranslationKey.block(line: block.sourceLine)] else { return block }
+                    .translatedBlocks[TranslationKey.block(id: block.id)] else { return block }
                 let items = translated.components(separatedBy: "\n").map { [InlineRun(text: $0)] }
                 return MarkdownBlock(
                     id: block.id,
@@ -482,7 +482,7 @@ public struct DocumentViewer: View {
 
             default:
                 guard let translated = translationState
-                    .translatedBlocks[TranslationKey.block(line: block.sourceLine)] else { return block }
+                    .translatedBlocks[TranslationKey.block(id: block.id)] else { return block }
                 return MarkdownBlock(
                     id: block.id,
                     kind: block.kind,

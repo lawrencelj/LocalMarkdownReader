@@ -8,18 +8,23 @@ enum TranslationToggleAction: Equatable {
 
 /// Identifies a translatable unit of a document.
 ///
-/// Most blocks translate as a whole and are keyed by their 1-based source line.
-/// Tables are the exception: each cell is translated independently so the grid
-/// keeps its shape, so table units carry their row/column as well.
+/// Keyed by `MarkdownBlock.id` — the block's index in the parsed document, which
+/// is unique by construction. Source lines are NOT usable here: swift-markdown
+/// reports a relative range when a paragraph is immediately followed by a table,
+/// and falls back to line 1 when a block has no range at all, so two different
+/// blocks can share one line number and overwrite each other's translation.
+///
+/// Tables are the exception to whole-block translation: each cell is translated
+/// independently so the grid keeps its shape, so table units carry row/column too.
 enum TranslationKey {
     /// Key for a whole block (heading, paragraph, blockquote, list).
-    static func block(line: Int) -> String {
-        String(line)
+    static func block(id: Int) -> String {
+        "b\(id)"
     }
 
     /// Key for a single table cell. Row 0 is the header row.
-    static func tableCell(line: Int, row: Int, column: Int) -> String {
-        "\(line)#\(row)#\(column)"
+    static func tableCell(id: Int, row: Int, column: Int) -> String {
+        "b\(id)#\(row)#\(column)"
     }
 }
 
@@ -121,10 +126,11 @@ struct TranslationCache {
     }
 
     /// Bumped when the on-disk shape changes. v1 keyed blocks by source line and
-    /// had no table cells; v2 keys by `TranslationKey`. Older files are simply
-    /// never read (a different suffix), so a stale cache re-translates instead of
+    /// had no table cells; v2 added table cells but still keyed blocks by line,
+    /// which collides; v3 keys by `MarkdownBlock.id`. Older files are simply never
+    /// read (a different suffix), so a stale cache re-translates instead of
     /// decoding into the wrong shape.
-    private static let formatVersion = "v2"
+    private static let formatVersion = "v3"
 
     private let directory: URL
 

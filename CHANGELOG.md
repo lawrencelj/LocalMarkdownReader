@@ -2,6 +2,33 @@
 
 All application and controlled design-document changes are recorded here. Entries are append-only.
 
+## 2026-08-07 — Version 1.0.8 (Build 9)
+
+### Category
+
+- Defect fix: translations could be written to the wrong block
+
+### Changes
+
+- Keyed translations by `MarkdownBlock.id` instead of `sourceLine`. `MarkdownBlockParser` does not guarantee distinct source lines: `MarkdownBlock.swift` derives the line from `markup.range?.lowerBound.line ?? 1`, and swift-markdown reports a relative range when a paragraph is immediately followed by a table, so two different blocks can both claim line 1. Block keys became `"b<id>"` and table-cell keys `"b<id>#<row>#<column>"`.
+- Fixed the resulting content corruption: because `translatedBlocks` is last-write-wins, colliding blocks overwrote each other, so a heading could render a different block's translated text.
+- Fixed progress accounting stalling short of completion (for example 9/10), caused by `translatedBlockArrived` only incrementing on a new key while `beginTranslation` counted every request.
+- Bumped the translation cache filename suffix to `.v3.json`. The v2 payload is shape-compatible with v3 (both `[String: String]`), so the suffix is the only guard against decoding line-keyed entries into id-keyed state.
+
+### Affected files
+
+- `Packages/ViewerUI/Sources/ViewerUI/DocumentViewer/DocumentTranslationState.swift`
+- `Packages/ViewerUI/Sources/ViewerUI/DocumentViewer/DocumentViewer.swift`
+- `Packages/ViewerUI/Tests/ViewerUITests/DocumentTranslationStateTests.swift`
+
+### Validation
+
+- Full available test suite: 276 tests, 11 skipped, 0 failures, exit 0.
+- Added `testParsedBlockIDsAreUniqueEvenWhenSourceLinesCollide`, which runs the real parser, asserts it genuinely reuses a source line, then asserts the derived keys stay unique. Confirmed to be a genuine detector: reverting the key derivation to `sourceLine` makes it fail.
+- Independent verification: REJECT on the first round (collision found by a 4000-document fuzz: 47 block-key collisions), then ACCEPT after this fix (0 block-key, 0 cell-key, 0 cross-namespace collisions, with 1136/4000 documents still exhibiting duplicate source lines). Progress reaches N/N on the documents that previously stalled.
+- Known gap, not addressed here: the suite does not protect the call sites. Reverting all four `block.id` call sites in `DocumentViewer.swift` reintroduces the defect with the suite still passing, because `translationUnits(in:)` and `displayedBlock(_:)` are private members of a SwiftUI `View`. Lifting them into a testable type would close it.
+- Pending: four-suite evidence, macOS release rebuild, and installation verification.
+
 ## 2026-08-07 — Version 1.0.7 (Build 8)
 
 ### Category
