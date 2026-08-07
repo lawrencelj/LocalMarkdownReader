@@ -2,6 +2,66 @@
 
 All application and controlled design-document changes are recorded here. Entries are append-only.
 
+## 2026-08-07 — Version 1.0.7 (Build 8)
+
+### Category
+
+- Defect fix: table text was never translated
+
+### Changes
+
+- Translated table cells. `translationUnits(in:)` now emits one translation request per non-empty table cell, replacing `translatableText(_:)`, which returned `nil` for `.table` and so silently skipped every table in the document.
+- Keyed translations by `TranslationKey` (`"<line>"` for whole blocks, `"<line>#<row>#<column>"` for table cells) instead of by source line alone, since a table's cells all share one source line and could not be addressed individually.
+- Changed `DocumentTranslationState.translatedBlocks` and `TranslationCache` from `[Int: String]` to `[String: String]`, and bumped the cache filename suffix to `.v2.json` so v1 entries are re-translated rather than decoded into the wrong shape.
+- Rebuilt translated tables cell by cell in `displayedBlock(_:)`; a cell keeps its English text until its own translation arrives, so partial results never distort the grid.
+- Skipped table cells containing no letters (numbers, dates, currency) to avoid reformatting numeric values and to reduce request count on data-heavy tables.
+
+### Affected files
+
+- `Packages/ViewerUI/Sources/ViewerUI/DocumentViewer/DocumentTranslationState.swift`
+- `Packages/ViewerUI/Sources/ViewerUI/DocumentViewer/DocumentViewer.swift`
+- `Packages/ViewerUI/Tests/ViewerUITests/DocumentTranslationStateTests.swift`
+
+### Validation
+
+- Added unit coverage for table-cell key distinctness, per-cell progress accounting, duplicate-response handling, and a cache round trip containing table-cell keys.
+- Pending: four-suite verification and a macOS rebuild on the release toolchain.
+
+## 2026-07-31 — Version 1.0.6 (Build 7)
+
+### Category
+
+- Governance: strengthen independent verification evidence
+
+### Changes
+
+- Require separate, candidate-SHA-bound evidence for Unit, Functional, Integration, and Security suites.
+- Block aggregate-only test claims and require independent re-acceptance after final documentation or version changes.
+- Archived the superseded project rules as `Archive/AGENTS_v1.2.md` and advanced the active rules to v1.3.
+
+### Validation
+
+- Independent verifier previously REJECTED the v1.2 rule for missing SHA rebinding and separate suite evidence.
+- Corrective rule changes reviewed locally; four-suite verification must be rerun before closure.
+
+## 2026-07-31 — Version 1.0.5 (Build 6)
+
+### Category
+
+- Governance: independent verification and lessons-learned gate
+
+### Changes
+
+- Added a mandatory post-four-suite independent verifier gate.
+- Required rejection handling, evidence-bound acceptance, lessons-learned recording, controlled-document updates, versioning, and push ordering.
+- Archived the superseded project rules as `Archive/AGENTS_v1.1.md` and advanced the active rules to v1.2.
+
+### Validation
+
+- Project rules consistency review completed.
+- Full available test suite: 269 tests, 0 failures.
+- macOS release rebuild completed.
+
 ## 2026-07-31 — Version 1.0.4 (Build 5)
 
 ### Category

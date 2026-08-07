@@ -1,4 +1,4 @@
-<!-- Project Rules Version: v1.3 -->
+<!-- Project Rules Version: v1.1 -->
 
 # Project Rules
 
@@ -31,7 +31,7 @@ The changelog is an operational ledger: append entries in place; do not rewrite 
 Controlled design and specification documents follow the existing document-control policy:
 
 - increment the document version for every document change
-- move the superseded document to `Archive/`
+- move the superseded document to an `Archive/` folder
 - keep the active document at its fixed live path
 - record the change in `CHANGELOG.md`
 
@@ -54,7 +54,7 @@ When a change is ready to close, the release workflow MUST run the complete four
 3. Integration tests
 4. Security tests
 
-Every suite MUST complete with a separate evidence report containing the candidate SHA, command or test target, exit status, test count, pass/fail result, and timestamp. Every suite MUST complete with a 100% pass result. A skipped suite, unavailable suite, partial run, aggregate-only result, or ignored failure is not a pass. If the repository maps a suite across multiple test targets, all mapped targets MUST pass. If a suite has no mapped target or reproducible command, the gate is blocked; an aggregate `swift test` result cannot substitute for missing Integration or Security evidence.
+Every suite MUST complete with a 100% pass result. A skipped suite, unavailable suite, partial run, or ignored failure is not a pass. If the repository maps a suite across multiple test targets, all mapped targets MUST pass.
 
 Only after the four-suite gate passes may the workflow continue:
 
@@ -70,17 +70,3 @@ Only after the four-suite gate passes may the workflow continue:
 The push, composed artifact, and installed application MUST all correspond to the same commit and application version. If any test suite fails, or if commit/push/composition/install verification fails, do not proceed to the next stage and do not claim the release is complete.
 
 The replacement scope is limited to the exact application bundle path `/Applications/Markdown Reader.app`; no other `/Applications` contents may be removed. When practical, move the existing bundle to the user's Trash before replacement so recovery remains possible.
-
-## Independent Verification and Lessons-Learned Gate
-
-After, and only after, all four suites pass with 100% success, every implementation change MUST enter an independent verification gate:
-
-1. Spawn a second agent or separate agent session that did not implement the change.
-2. Give the verifier the user goal and acceptance criteria, not merely the implementation details.
-3. Require the verifier to inspect the implementation, attempt the relevant boundary and failure cases, and run the relevant tests.
-4. Require an explicit `ACCEPT` or `REJECT` result with evidence tied to the candidate revision.
-5. If the result is `REJECT`, correct the issue, rerun all four suites, and repeat independent verification. Do not push or close the change while verification is incomplete or rejected.
-6. After `ACCEPT`, review the failure mode and record a concise lessons-learned entry describing the preventive engineering rule and regression checks.
-7. Update all affected controlled documents, increment their document versions, archive superseded versions, update the application version and changelog, then commit and push the exact verified revision.
-
-The verifier MUST NOT be the implementing agent or simply rerun the implementer's tests. A test-infrastructure failure is an incomplete verification, not an acceptance; resolve the environment or use an approved reproducible fallback and record the evidence. The verifier's ACCEPT MUST bind to the final candidate SHA after all lessons-learned, controlled-document, changelog, and version changes are complete. Any commit after ACCEPT requires the four-suite gate and independent verification to be repeated, unless the commit is proven documentation-only and the verifier explicitly re-accepts the new SHA.

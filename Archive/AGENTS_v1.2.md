@@ -1,4 +1,4 @@
-<!-- Project Rules Version: v1.3 -->
+<!-- Project Rules Version: v1.2 -->
 
 # Project Rules
 
@@ -31,7 +31,7 @@ The changelog is an operational ledger: append entries in place; do not rewrite 
 Controlled design and specification documents follow the existing document-control policy:
 
 - increment the document version for every document change
-- move the superseded document to `Archive/`
+- move the superseded document to an `Archive/` folder
 - keep the active document at its fixed live path
 - record the change in `CHANGELOG.md`
 
@@ -54,7 +54,7 @@ When a change is ready to close, the release workflow MUST run the complete four
 3. Integration tests
 4. Security tests
 
-Every suite MUST complete with a separate evidence report containing the candidate SHA, command or test target, exit status, test count, pass/fail result, and timestamp. Every suite MUST complete with a 100% pass result. A skipped suite, unavailable suite, partial run, aggregate-only result, or ignored failure is not a pass. If the repository maps a suite across multiple test targets, all mapped targets MUST pass. If a suite has no mapped target or reproducible command, the gate is blocked; an aggregate `swift test` result cannot substitute for missing Integration or Security evidence.
+Every suite MUST complete with a 100% pass result. A skipped suite, unavailable suite, partial run, or ignored failure is not a pass. If the repository maps a suite across multiple test targets, all mapped targets MUST pass.
 
 Only after the four-suite gate passes may the workflow continue:
 
@@ -83,4 +83,4 @@ After, and only after, all four suites pass with 100% success, every implementat
 6. After `ACCEPT`, review the failure mode and record a concise lessons-learned entry describing the preventive engineering rule and regression checks.
 7. Update all affected controlled documents, increment their document versions, archive superseded versions, update the application version and changelog, then commit and push the exact verified revision.
 
-The verifier MUST NOT be the implementing agent or simply rerun the implementer's tests. A test-infrastructure failure is an incomplete verification, not an acceptance; resolve the environment or use an approved reproducible fallback and record the evidence. The verifier's ACCEPT MUST bind to the final candidate SHA after all lessons-learned, controlled-document, changelog, and version changes are complete. Any commit after ACCEPT requires the four-suite gate and independent verification to be repeated, unless the commit is proven documentation-only and the verifier explicitly re-accepts the new SHA.
+The verifier MUST NOT be the implementing agent or simply rerun the implementer's tests. A test-infrastructure failure is an incomplete verification, not an acceptance; resolve the environment or use an approved reproducible fallback and record the evidence.

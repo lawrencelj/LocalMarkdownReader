@@ -317,12 +317,10 @@ public struct DocumentViewer: View {
                 return
             }
 
-            let requests = MarkdownBlockParser.parse(content).compactMap { block -> TranslationSession.Request? in
-                guard block.isTranslatable, let text = translatableText(block) else { return nil }
-                return TranslationSession.Request(
-                    sourceText: text,
-                    clientIdentifier: String(block.sourceLine)
-                )
+            let requests = MarkdownBlockParser.parse(content).flatMap { block in
+                translationUnits(in: block).map { unit in
+                    TranslationSession.Request(sourceText: unit.text, clientIdentifier: unit.key)
+                }
             }
 
             guard !requests.isEmpty else {
@@ -339,13 +337,12 @@ public struct DocumentViewer: View {
             }
 
             do {
-                var translatedBlocks: [Int: String] = [:]
+                var translatedBlocks: [String: String] = [:]
                 for try await response in session.translate(batch: requests) {
                     guard requestID == translationRequestID else { return }
-                    guard let identifier = response.clientIdentifier,
-                          let line = Int(identifier) else { continue }
-                    translatedBlocks[line] = response.targetText
-                    translationState.translatedBlockArrived(line: line, text: response.targetText)
+                    guard let key = response.clientIdentifier, !key.isEmpty else { continue }
+                    translatedBlocks[key] = response.targetText
+                    translationState.translatedBlockArrived(key: key, text: response.targetText)
                 }
 
                 guard requestID == translationRequestID else { return }
@@ -383,49 +380,119 @@ public struct DocumentViewer: View {
             return SHA256.hash(data: Data(input.utf8)).map { String(format: "%02x", $0) }.joined()
         }
 
-        /// The plain text offered to the translator for a block (nil if nothing to translate).
-        private func translatableText(_ block: MarkdownBlock) -> String? {
+        /// The keyed pieces of text a block offers to the translator.
+        ///
+        /// Most blocks contribute a single unit. Tables contribute one unit per
+        /// cell so the translated text can be put back into the same grid
+        /// position; a whole-table request would come back as prose and lose the
+        /// row/column structure. Code blocks and thematic breaks contribute none.
+        private func translationUnits(in block: MarkdownBlock) -> [(key: String, text: String)] {
             switch block.kind {
+            case .codeBlock, .thematicBreak:
+                return []
+
+            case .table:
+                var units: [(key: String, text: String)] = []
+                for (rowIndex, row) in block.tableRows.enumerated() {
+                    for (columnIndex, cell) in row.enumerated() {
+                        let text = cell.plainText
+                        // Skip cells with no letters (numbers, dates, currency,
+                        // "—"): translating them is a no-op at best and can
+                        // reformat the value at worst.
+                        guard text.rangeOfCharacter(from: .letters) != nil else { continue }
+                        units.append((
+                            key: TranslationKey.tableCell(
+                                line: block.sourceLine,
+                                row: rowIndex,
+                                column: columnIndex
+                            ),
+                            text: text
+                        ))
+                    }
+                }
+                return units
+
             case .unorderedList, .orderedList:
-                return block.listItems.map { $0.plainText }.joined(separator: "\n")
-            case .table, .codeBlock, .thematicBreak:
-                return nil
+                let text = block.listItems.map { $0.plainText }.joined(separator: "\n")
+                guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+                return [(key: TranslationKey.block(line: block.sourceLine), text: text)]
+
             default:
                 let text = block.plainText
-                return text.isEmpty ? nil : text
+                guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+                return [(key: TranslationKey.block(line: block.sourceLine), text: text)]
             }
         }
     #endif
 
     /// Applies an active Chinese translation to a block by substituting its text.
-    /// Only heading/paragraph/blockquote and lists are substituted (tables/code
-    /// are left in the source language, matching what is offered to the translator).
+    ///
+    /// Mirrors `translationUnits(in:)`: headings/paragraphs/blockquotes and lists
+    /// are replaced wholesale, tables are replaced cell by cell (each cell keeps
+    /// its English text until its own translation arrives), and code blocks and
+    /// thematic breaks are always left in the source language.
     private func displayedBlock(_ block: MarkdownBlock) -> MarkdownBlock {
         #if os(macOS)
-            if translationState.isShowingChinese,
-               let translated = translationState.translatedBlocks[block.sourceLine] {
-                switch block.kind {
-                case .unorderedList, .orderedList:
-                    let items = translated.components(separatedBy: "\n").map { [InlineRun(text: $0)] }
-                    return MarkdownBlock(
-                        id: block.id,
-                        kind: block.kind,
-                        sourceLine: block.sourceLine,
-                        listItems: items
-                    )
-                case .table, .codeBlock, .thematicBreak:
-                    return block
-                default:
-                    return MarkdownBlock(
-                        id: block.id,
-                        kind: block.kind,
-                        sourceLine: block.sourceLine,
-                        runs: [InlineRun(text: translated)]
-                    )
+            guard translationState.isShowingChinese else { return block }
+
+            switch block.kind {
+            case .codeBlock, .thematicBreak:
+                return block
+
+            case .table:
+                var didTranslateAnyCell = false
+                var rows: [[[InlineRun]]] = []
+                rows.reserveCapacity(block.tableRows.count)
+                for (rowIndex, row) in block.tableRows.enumerated() {
+                    var cells: [[InlineRun]] = []
+                    cells.reserveCapacity(row.count)
+                    for (columnIndex, cell) in row.enumerated() {
+                        let key = TranslationKey.tableCell(
+                            line: block.sourceLine,
+                            row: rowIndex,
+                            column: columnIndex
+                        )
+                        if let translated = translationState.translatedBlocks[key] {
+                            cells.append([InlineRun(text: translated)])
+                            didTranslateAnyCell = true
+                        } else {
+                            cells.append(cell)
+                        }
+                    }
+                    rows.append(cells)
                 }
+                guard didTranslateAnyCell else { return block }
+                return MarkdownBlock(
+                    id: block.id,
+                    kind: block.kind,
+                    sourceLine: block.sourceLine,
+                    tableRows: rows
+                )
+
+            case .unorderedList, .orderedList:
+                guard let translated = translationState
+                    .translatedBlocks[TranslationKey.block(line: block.sourceLine)] else { return block }
+                let items = translated.components(separatedBy: "\n").map { [InlineRun(text: $0)] }
+                return MarkdownBlock(
+                    id: block.id,
+                    kind: block.kind,
+                    sourceLine: block.sourceLine,
+                    listItems: items
+                )
+
+            default:
+                guard let translated = translationState
+                    .translatedBlocks[TranslationKey.block(line: block.sourceLine)] else { return block }
+                return MarkdownBlock(
+                    id: block.id,
+                    kind: block.kind,
+                    sourceLine: block.sourceLine,
+                    runs: [InlineRun(text: translated)]
+                )
             }
+        #else
+            return block
         #endif
-        return block
     }
 
     /// Renders the markdown content with proper formatting
