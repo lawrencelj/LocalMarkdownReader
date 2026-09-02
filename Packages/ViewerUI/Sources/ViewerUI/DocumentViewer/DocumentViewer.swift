@@ -157,10 +157,10 @@ public struct DocumentViewer: View {
                         }
                     }
                     .onChange(of: coordinator.documentState.focusedLine) { _, line in
-                        if let line {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                proxy.scrollTo("content-line-\(line)", anchor: .center)
-                            }
+                        guard let line,
+                              let anchor = contentLineAnchor(for: line) else { return }
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            proxy.scrollTo(anchor, anchor: .center)
                         }
                     }
                     .onChange(of: findScrollAnchor) { _, anchor in
@@ -502,17 +502,36 @@ public struct DocumentViewer: View {
         let showNumbers = coordinator.uiState.showLineNumbers
 
         return VStack(alignment: .leading, spacing: 0) {
-            ForEach(blocks) { block in
-                blockView(displayedBlock(block), showNumbers: showNumbers)
+            ForEach(Array(blocks.enumerated()), id: \.element.id) { index, block in
+                let nextBlockSourceLine = blocks.dropFirst(index + 1).first?.sourceLine
+                blockView(
+                    displayedBlock(block),
+                    showNumbers: showNumbers,
+                    nextBlockSourceLine: nextBlockSourceLine
+                )
                     .id(block.anchorID)
             }
         }
     }
 
+    /// Finds the rendered row anchor corresponding to a source-editor line.
+    private func contentLineAnchor(for line: Int) -> String? {
+        let content = coordinator.documentState.currentDocument?.content ?? ""
+        let blocks = MarkdownBlockParser.parse(content)
+        guard let sourceLine = ContentLineSynchronizer.renderedAnchorLine(for: line, in: blocks) else {
+            return nil
+        }
+        return "content-line-\(sourceLine)"
+    }
+
     // MARK: - Block Rendering
 
     @ViewBuilder
-    private func blockView(_ block: MarkdownBlock, showNumbers: Bool) -> some View {
+    private func blockView(
+        _ block: MarkdownBlock,
+        showNumbers: Bool,
+        nextBlockSourceLine: Int? = nil
+    ) -> some View {
         switch block.kind {
         case .unorderedList:
             listBlockView(block, showNumbers: showNumbers, ordered: false)
@@ -521,16 +540,30 @@ public struct DocumentViewer: View {
         case .table:
             tableBlockView(block, showNumbers: showNumbers)
         default:
-            singleBlockRow(block, showNumbers: showNumbers)
+            singleBlockRow(
+                block,
+                showNumbers: showNumbers,
+                nextBlockSourceLine: nextBlockSourceLine
+            )
         }
     }
 
-    private func singleBlockRow(_ block: MarkdownBlock, showNumbers: Bool) -> some View {
-        HStack(alignment: .top, spacing: 0) {
+    private func singleBlockRow(
+        _ block: MarkdownBlock,
+        showNumbers: Bool,
+        nextBlockSourceLine: Int?
+    ) -> some View {
+        let isFocused = ContentLineSynchronizer.contains(
+            focusedLine: coordinator.documentState.focusedLine,
+            blockSourceLine: block.sourceLine,
+            nextBlockSourceLine: nextBlockSourceLine
+        )
+
+        return HStack(alignment: .top, spacing: 0) {
             if showNumbers {
                 Text("\(block.sourceLine)")
                     .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(coordinator.documentState.focusedLine == block.sourceLine
+                    .foregroundStyle(isFocused
                         ? Color.accentColor
                         : Color.gray.opacity(0.4))
                     .frame(width: 36, alignment: .trailing)
@@ -543,7 +576,7 @@ public struct DocumentViewer: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 2)
         .background(
-            coordinator.documentState.focusedLine == block.sourceLine
+            isFocused
                 ? Color.accentColor.opacity(0.12)
                 : (block.id % 2 == 0 ? Color.clear : Color.gray.opacity(0.04))
         )
@@ -567,7 +600,9 @@ public struct DocumentViewer: View {
                     if showNumbers {
                         Text("\(lineNum)")
                             .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(Color.gray.opacity(0.4))
+                            .foregroundStyle(coordinator.documentState.focusedLine == lineNum
+                                ? Color.accentColor
+                                : Color.gray.opacity(0.4))
                             .frame(width: 36, alignment: .trailing)
                             .padding(.trailing, 8)
                     }
@@ -594,7 +629,16 @@ public struct DocumentViewer: View {
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(rowIndex % 2 == 0 ? Color.clear : Color.gray.opacity(0.04))
+                .background(
+                    coordinator.documentState.focusedLine == lineNum
+                        ? Color.accentColor.opacity(0.12)
+                        : (rowIndex % 2 == 0 ? Color.clear : Color.gray.opacity(0.04))
+                )
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    coordinator.documentState.focusedLine = lineNum
+                }
+                .id("content-line-\(lineNum)")
             }
         }
     }
@@ -719,7 +763,9 @@ public struct DocumentViewer: View {
                         if showNumbers {
                             Text("\(lineNum)")
                                 .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(Color.gray.opacity(0.4))
+                                .foregroundStyle(coordinator.documentState.focusedLine == lineNum
+                                    ? Color.accentColor
+                                    : Color.gray.opacity(0.4))
                                 .frame(width: 36, alignment: .trailing)
                                 .padding(.trailing, 8)
                         }
@@ -729,7 +775,16 @@ public struct DocumentViewer: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
-                    .background(rowIndex % 2 == 0 ? Color.clear : Color.gray.opacity(0.04))
+                    .background(
+                        coordinator.documentState.focusedLine == lineNum
+                            ? Color.accentColor.opacity(0.12)
+                            : (rowIndex % 2 == 0 ? Color.clear : Color.gray.opacity(0.04))
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        coordinator.documentState.focusedLine = lineNum
+                    }
+                    .id("content-line-\(lineNum)")
 
                     if rowIdx == 0 {
                         Divider()
