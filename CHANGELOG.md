@@ -25,10 +25,11 @@ All application and controlled design-document changes are recorded here. Entrie
   - Integration tests: 30 tests (11 skipped), 0 failures, exit 0
   - Security tests: 20 tests, 0 failures, exit 0
 - Full test suite: 276 tests, 11 skipped, 0 failures, exit 0
-- Candidate SHA: bb1b1b22479424d676e5552e7dcdfbf8cb093419
+- Candidate SHA: c8bb3ccdec0d97123b8def80a6859c646928b343
 - macOS release build: arm64, codesign verified
 - Installation: /Applications/Markdown Reader.app, version 1.0.9 (Build 10) confirmed
 - Launch test: application running (PID verified)
+- Independent verification: ACCEPT (verifier confirmed all acceptance criteria met)
 
 ## 2026-08-07 — Version 1.0.8 (Build 9)
 
