@@ -2,6 +2,34 @@
 
 All application and controlled design-document changes are recorded here. Entries are append-only.
 
+## 2026-09-02 — Version 1.0.9 (Build 10)
+
+### Category
+
+- UI improvement: document tab display and context menu
+
+### Changes
+
+- Changed tab title to display the filename instead of the document's first heading.
+- Added right-click context menu on tabs showing the full file path, with options to Copy Path, Show in Finder, and Close the document.
+
+### Affected files
+
+- `Apps/MarkdownReader-macOS/ContentView.swift`
+
+### Validation
+
+- Four-suite gate passed:
+  - Unit tests: 143 tests, 0 failures, exit 0
+  - Functional tests: 77 tests, 0 failures, exit 0
+  - Integration tests: 30 tests (11 skipped), 0 failures, exit 0
+  - Security tests: 20 tests, 0 failures, exit 0
+- Full test suite: 276 tests, 11 skipped, 0 failures, exit 0
+- Candidate SHA: bb1b1b22479424d676e5552e7dcdfbf8cb093419
+- macOS release build: arm64, codesign verified
+- Installation: /Applications/Markdown Reader.app, version 1.0.9 (Build 10) confirmed
+- Launch test: application running (PID verified)
+
 ## 2026-08-07 — Version 1.0.8 (Build 9)
 
 ### Category

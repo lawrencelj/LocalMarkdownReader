@@ -229,7 +229,7 @@ struct ContentView: View {
             Image(systemName: "doc.text")
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
-            Text(doc.title ?? doc.reference.url.lastPathComponent)
+            Text(doc.reference.url.lastPathComponent)
                 .font(.caption)
                 .lineLimit(1)
 
@@ -255,6 +255,22 @@ struct ContentView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             Task { await coordinator.switchToDocument(at: index) }
+        }
+        .contextMenu {
+            Text(doc.reference.url.path)
+                .font(.caption)
+            Divider()
+            Button("Copy Path") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(doc.reference.url.path, forType: .string)
+            }
+            Button("Show in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([doc.reference.url])
+            }
+            Divider()
+            Button("Close") {
+                coordinator.closeDocument(at: index)
+            }
         }
     }
 
