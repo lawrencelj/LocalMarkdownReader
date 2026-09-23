@@ -499,20 +499,231 @@ public struct DocumentViewer: View {
     private var formattedContent: some View {
         let rawContent = coordinator.documentState.currentDocument?.content ?? ""
         let blocks = MarkdownBlockParser.parse(rawContent)
-        let showNumbers = coordinator.uiState.showLineNumbers
 
-        return VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(blocks.enumerated()), id: \.element.id) { index, block in
-                let nextBlockSourceLine = blocks.dropFirst(index + 1).first?.sourceLine
-                blockView(
-                    displayedBlock(block),
-                    showNumbers: showNumbers,
-                    nextBlockSourceLine: nextBlockSourceLine
-                )
-                    .id(block.anchorID)
+        // Use NSTextView-backed view for proper multi-line text selection on macOS
+        #if os(macOS)
+        return SelectableMarkdownView(
+            attributedString: buildFullDocumentNSAttributedString(blocks: blocks),
+            backgroundColor: themeManager.color(for: .background)
+        )
+        #else
+        // Fallback for other platforms
+        let showNumbers = coordinator.uiState.showLineNumbers
+        return HStack(alignment: .top, spacing: 0) {
+            if showNumbers {
+                lineNumberColumn(blocks: blocks)
+            }
+            selectableContentColumn(blocks: blocks)
+        }
+        #endif
+    }
+
+    #if os(macOS)
+    /// Builds NSAttributedString for the entire document (for NSTextView)
+    private func buildFullDocumentNSAttributedString(blocks: [MarkdownBlock]) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        let defaultFont = NSFont.systemFont(ofSize: 15 * themeManager.fontSizeMultiplier)
+        let primaryColor = NSColor(themeManager.color(for: .primary))
+
+        for (index, block) in blocks.enumerated() {
+            let displayBlock = displayedBlock(block)
+            let segID = "seg-\(block.id)"
+
+            switch displayBlock.kind {
+            case let .heading(level):
+                result.append(buildHeadingNSAttributed(displayBlock.runs, level: level, segID: segID))
+            case .paragraph:
+                result.append(buildParagraphNSAttributed(displayBlock.runs, segID: segID))
+            case let .codeBlock(language):
+                result.append(buildCodeBlockNSAttributed(displayBlock.code, language: language, segID: segID))
+            case .blockquote:
+                result.append(buildBlockquoteNSAttributed(displayBlock.runs, segID: segID))
+            case .unorderedList:
+                result.append(buildListNSAttributed(displayBlock.listItems, ordered: false, blockID: block.id))
+            case .orderedList:
+                result.append(buildListNSAttributed(displayBlock.listItems, ordered: true, blockID: block.id))
+            case .table:
+                result.append(buildTableNSAttributed(displayBlock.tableRows, blockID: block.id))
+            case .thematicBreak:
+                let hr = NSMutableAttributedString(string: "───────────────────────────────────────\n\n")
+                hr.addAttribute(.foregroundColor, value: NSColor.separatorColor, range: NSRange(location: 0, length: hr.length))
+                result.append(hr)
             }
         }
+
+        return result
     }
+
+    private func buildHeadingNSAttributed(_ runs: [InlineRun], level: Int, segID: String) -> NSAttributedString {
+        let fontSize: CGFloat = switch level {
+        case 1: 28
+        case 2: 24
+        case 3: 20
+        case 4: 17
+        case 5: 15
+        default: 14
+        }
+        let weight: NSFont.Weight = level <= 2 ? .bold : .semibold
+        let font = NSFont.systemFont(ofSize: fontSize * themeManager.fontSizeMultiplier, weight: weight)
+
+        let result = buildRunsNSAttributed(runs, baseFont: font, segID: segID)
+        result.append(NSAttributedString(string: "\n\n"))
+        return result
+    }
+
+    private func buildParagraphNSAttributed(_ runs: [InlineRun], segID: String) -> NSAttributedString {
+        let font = NSFont.systemFont(ofSize: 15 * themeManager.fontSizeMultiplier)
+        let result = buildRunsNSAttributed(runs, baseFont: font, segID: segID)
+        result.append(NSAttributedString(string: "\n\n"))
+        return result
+    }
+
+    private func buildCodeBlockNSAttributed(_ code: String, language: String?, segID: String) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        let codeFont = NSFont.monospacedSystemFont(ofSize: 13 * themeManager.fontSizeMultiplier, weight: .regular)
+        let primaryColor = NSColor(themeManager.color(for: .primary))
+
+        if let lang = language, !lang.isEmpty {
+            let langAttr = NSMutableAttributedString(string: "[\(lang)]\n")
+            langAttr.addAttributes([
+                .font: NSFont.monospacedSystemFont(ofSize: 11 * themeManager.fontSizeMultiplier, weight: .medium),
+                .foregroundColor: NSColor.secondaryLabelColor
+            ], range: NSRange(location: 0, length: langAttr.length))
+            result.append(langAttr)
+        }
+
+        let codeAttr = NSMutableAttributedString(string: code)
+        codeAttr.addAttributes([
+            .font: codeFont,
+            .foregroundColor: primaryColor,
+            .backgroundColor: NSColor.gray.withAlphaComponent(0.08)
+        ], range: NSRange(location: 0, length: codeAttr.length))
+        result.append(codeAttr)
+        result.append(NSAttributedString(string: "\n\n"))
+
+        return result
+    }
+
+    private func buildBlockquoteNSAttributed(_ runs: [InlineRun], segID: String) -> NSAttributedString {
+        let result = NSMutableAttributedString(string: "│ ")
+        result.addAttributes([
+            .foregroundColor: NSColor.controlAccentColor.withAlphaComponent(0.6),
+            .font: NSFont.systemFont(ofSize: 15 * themeManager.fontSizeMultiplier)
+        ], range: NSRange(location: 0, length: result.length))
+
+        let font = NSFont.systemFont(ofSize: 15 * themeManager.fontSizeMultiplier)
+        let italicFont = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
+        let contentAttr = buildRunsNSAttributed(runs, baseFont: italicFont, segID: segID)
+        contentAttr.addAttribute(.foregroundColor, value: NSColor.secondaryLabelColor, range: NSRange(location: 0, length: contentAttr.length))
+        result.append(contentAttr)
+        result.append(NSAttributedString(string: "\n\n"))
+
+        return result
+    }
+
+    private func buildListNSAttributed(_ items: [[InlineRun]], ordered: Bool, blockID: Int) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        let font = NSFont.systemFont(ofSize: 15 * themeManager.fontSizeMultiplier)
+        let primaryColor = NSColor(themeManager.color(for: .primary))
+
+        for (index, item) in items.enumerated() {
+            let segID = "seg-\(blockID)-\(index)"
+            let bullet = ordered ? "\(index + 1). " : "• "
+
+            let bulletAttr = NSMutableAttributedString(string: bullet)
+            bulletAttr.addAttributes([
+                .font: font,
+                .foregroundColor: NSColor.secondaryLabelColor
+            ], range: NSRange(location: 0, length: bulletAttr.length))
+            result.append(bulletAttr)
+
+            let itemAttr = buildRunsNSAttributed(item, baseFont: font, segID: segID)
+            itemAttr.addAttribute(.foregroundColor, value: primaryColor, range: NSRange(location: 0, length: itemAttr.length))
+            result.append(itemAttr)
+            result.append(NSAttributedString(string: "\n"))
+        }
+
+        result.append(NSAttributedString(string: "\n"))
+        return result
+    }
+
+    private func buildTableNSAttributed(_ rows: [[[InlineRun]]], blockID: Int) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        let font = NSFont.systemFont(ofSize: 14 * themeManager.fontSizeMultiplier)
+        let boldFont = NSFont.systemFont(ofSize: 14 * themeManager.fontSizeMultiplier, weight: .semibold)
+        let primaryColor = NSColor(themeManager.color(for: .primary))
+
+        for (rowIndex, row) in rows.enumerated() {
+            let isHeader = rowIndex == 0
+
+            for (colIndex, cell) in row.enumerated() {
+                let segID = "seg-\(blockID)-r\(rowIndex)-c\(colIndex)"
+
+                if colIndex > 0 {
+                    result.append(NSAttributedString(string: " │ "))
+                }
+
+                let cellAttr = buildRunsNSAttributed(cell, baseFont: isHeader ? boldFont : font, segID: segID)
+                cellAttr.addAttribute(.foregroundColor, value: primaryColor, range: NSRange(location: 0, length: cellAttr.length))
+                result.append(cellAttr)
+            }
+
+            result.append(NSAttributedString(string: "\n"))
+
+            if isHeader && rows.count > 1 {
+                let separator = String(repeating: "─", count: 40)
+                result.append(NSAttributedString(string: "\(separator)\n"))
+            }
+        }
+
+        result.append(NSAttributedString(string: "\n"))
+        return result
+    }
+
+    private func buildRunsNSAttributed(_ runs: [InlineRun], baseFont: NSFont, segID: String) -> NSMutableAttributedString {
+        let result = NSMutableAttributedString()
+        let primaryColor = NSColor(themeManager.color(for: .primary))
+
+        for run in runs {
+            var font = baseFont
+
+            if run.isBold && run.isItalic {
+                font = NSFontManager.shared.convert(font, toHaveTrait: [.boldFontMask, .italicFontMask])
+            } else if run.isBold {
+                font = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
+            } else if run.isItalic {
+                font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
+            }
+
+            if run.isCode {
+                font = NSFont.monospacedSystemFont(ofSize: font.pointSize, weight: .regular)
+            }
+
+            var attributes: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: primaryColor
+            ]
+
+            if run.isCode {
+                attributes[.backgroundColor] = NSColor.gray.withAlphaComponent(0.12)
+            }
+
+            if run.isStrikethrough {
+                attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+            }
+
+            if let link = run.link, let url = URL(string: link) {
+                attributes[.foregroundColor] = NSColor.linkColor
+                attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue
+                attributes[.link] = url
+            }
+
+            result.append(NSAttributedString(string: run.text, attributes: attributes))
+        }
+
+        return result
+    }
+    #endif
 
     /// Finds the rendered row anchor corresponding to a source-editor line.
     private func contentLineAnchor(for line: Int) -> String? {
@@ -1063,3 +1274,67 @@ public struct DocumentViewer: View {
         )
     }
 }
+
+// MARK: - SelectableMarkdownView (macOS NSTextView wrapper)
+
+#if os(macOS)
+/// A SwiftUI view that wraps NSTextView for proper multi-line text selection
+struct SelectableMarkdownView: NSViewRepresentable {
+    let attributedString: NSAttributedString
+    let backgroundColor: Color
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = true
+        scrollView.backgroundColor = NSColor(backgroundColor)
+
+        let textView = NSTextView()
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.isRichText = true
+        textView.drawsBackground = true
+        textView.backgroundColor = NSColor(backgroundColor)
+        textView.textContainerInset = NSSize(width: 0, height: 0)
+
+        // Configure text container for proper wrapping
+        textView.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        textView.textContainer?.widthTracksTextView = true
+        textView.isHorizontallyResizable = false
+        textView.isVerticallyResizable = true
+        textView.autoresizingMask = [.width]
+
+        // Set initial content
+        textView.textStorage?.setAttributedString(attributedString)
+
+        scrollView.documentView = textView
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? NSTextView else { return }
+
+        // Update content if changed
+        if textView.attributedString() != attributedString {
+            // Preserve selection if possible
+            let selectedRanges = textView.selectedRanges
+            textView.textStorage?.setAttributedString(attributedString)
+
+            // Restore selection if still valid
+            if let ranges = selectedRanges as? [NSRange] {
+                let validRanges = ranges.filter { $0.location + $0.length <= attributedString.length }
+                if !validRanges.isEmpty {
+                    textView.selectedRanges = validRanges as [NSValue]
+                }
+            }
+        }
+
+        // Update background color
+        textView.backgroundColor = NSColor(backgroundColor)
+        scrollView.backgroundColor = NSColor(backgroundColor)
+    }
+}
+#endif

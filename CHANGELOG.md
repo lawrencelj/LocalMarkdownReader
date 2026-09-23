@@ -2,6 +2,33 @@
 
 All application and controlled design-document changes are recorded here. Entries are append-only.
 
+## 2026-09-02 — Version 1.0.11 (Build 12)
+
+### Category
+
+- Fix: Multi-line text selection
+
+### Changes
+
+- Enabled multi-line text selection across the entire rendered document. Previously selection was limited to single lines due to each block being rendered as a separate SwiftUI Text view.
+- Replaced per-block SwiftUI Text rendering with NSTextView-backed SelectableMarkdownView for proper native macOS text selection support.
+- Full document content is now rendered as a single NSAttributedString, allowing users to select, copy, and highlight text spanning multiple paragraphs, headings, lists, and code blocks.
+
+### Affected files
+
+- `Packages/ViewerUI/Sources/ViewerUI/DocumentViewer/DocumentViewer.swift`
+
+### Validation
+
+- Four-suite gate:
+  - Unit tests: 143 tests (7 skipped), 0 failures, exit 0
+  - Functional tests: 77 tests, 0 failures, exit 0
+  - Integration tests: 30 tests (4 skipped), 0 failures, exit 0
+  - Security tests: 20 tests, 0 failures, exit 0
+- Full test suite: 276 tests, 11 skipped, 0 failures, exit 0
+- Candidate SHA: pending commit
+- Independent verification: pending
+
 ## 2026-09-02 — Version 1.0.10 (Build 11)
 
 ### Category
