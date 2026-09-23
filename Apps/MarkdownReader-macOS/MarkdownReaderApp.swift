@@ -99,6 +99,28 @@ struct MarkdownReaderApp: App {
             }
             .keyboardShortcut("w", modifiers: .command)
             .disabled(coordinator.documentState.currentDocument == nil)
+
+            Divider()
+
+            Menu("Export As") {
+                Button(ExportFormat.word.displayName) {
+                    exportCurrentDocument(format: .word)
+                }
+                .keyboardShortcut("e", modifiers: [.command, .shift])
+
+                Button(ExportFormat.rtf.displayName) {
+                    exportCurrentDocument(format: .rtf)
+                }
+
+                Button(ExportFormat.html.displayName) {
+                    exportCurrentDocument(format: .html)
+                }
+
+                Button(ExportFormat.pdf.displayName) {
+                    exportCurrentDocument(format: .pdf)
+                }
+            }
+            .disabled(coordinator.documentState.currentDocument == nil)
         }
 
         // Edit menu enhancements
@@ -263,6 +285,15 @@ struct MarkdownReaderApp: App {
     private var supportedDocumentTypes: [UTType] {
         FileAccessConfiguration.supportedExtensions.compactMap {
             UTType(filenameExtension: $0)
+        }
+    }
+
+    private func exportCurrentDocument(format: ExportFormat) {
+        Task { @MainActor in
+            guard let document = coordinator.documentState.currentDocument else { return }
+            let content = document.content
+            let title = document.reference.url.deletingPathExtension().lastPathComponent
+            _ = DocumentExporter.exportWithPanel(content: content, title: title, format: format)
         }
     }
 }

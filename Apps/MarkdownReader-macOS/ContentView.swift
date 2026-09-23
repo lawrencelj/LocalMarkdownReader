@@ -573,7 +573,7 @@ private struct MacOSSettingsView: View {
                 }
 
                 HStack {
-                    Text("Font Size: \(Int(fontSizeValue * 100))%")
+                    Text(verbatim: "Font Size: \(Int(fontSizeValue * 100))%")
                     Spacer()
                     Slider(value: $fontSizeValue, in: 0.5 ... 3.0, step: 0.1)
                         .frame(width: 200)

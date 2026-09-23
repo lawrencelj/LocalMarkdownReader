@@ -568,6 +568,10 @@ public struct DocumentViewer: View {
                         : Color.gray.opacity(0.4))
                     .frame(width: 36, alignment: .trailing)
                     .padding(.trailing, 8)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        coordinator.documentState.focusedLine = block.sourceLine
+                    }
             }
 
             blockContent(block)
@@ -580,13 +584,6 @@ public struct DocumentViewer: View {
                 ? Color.accentColor.opacity(0.12)
                 : (block.id % 2 == 0 ? Color.clear : Color.gray.opacity(0.04))
         )
-        .overlay {
-            Color.clear
-                .contentShape(Rectangle())
-                .simultaneousGesture(TapGesture().onEnded {
-                    coordinator.documentState.focusedLine = block.sourceLine
-                })
-        }
         .id("content-line-\(block.sourceLine)")
     }
 
@@ -605,6 +602,10 @@ public struct DocumentViewer: View {
                                 : Color.gray.opacity(0.4))
                             .frame(width: 36, alignment: .trailing)
                             .padding(.trailing, 8)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                coordinator.documentState.focusedLine = lineNum
+                            }
                     }
 
                     HStack(alignment: .top, spacing: 8) {
@@ -634,10 +635,6 @@ public struct DocumentViewer: View {
                         ? Color.accentColor.opacity(0.12)
                         : (rowIndex % 2 == 0 ? Color.clear : Color.gray.opacity(0.04))
                 )
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    coordinator.documentState.focusedLine = lineNum
-                }
                 .id("content-line-\(lineNum)")
             }
         }
@@ -768,6 +765,10 @@ public struct DocumentViewer: View {
                                     : Color.gray.opacity(0.4))
                                 .frame(width: 36, alignment: .trailing)
                                 .padding(.trailing, 8)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    coordinator.documentState.focusedLine = lineNum
+                                }
                         }
 
                         tableRowCells(row, isHeader: rowIdx == 0, segIDPrefix: "seg-\(block.id)-r\(rowIdx)")
@@ -780,10 +781,6 @@ public struct DocumentViewer: View {
                             ? Color.accentColor.opacity(0.12)
                             : (rowIndex % 2 == 0 ? Color.clear : Color.gray.opacity(0.04))
                     )
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        coordinator.documentState.focusedLine = lineNum
-                    }
                     .id("content-line-\(lineNum)")
 
                     if rowIdx == 0 {

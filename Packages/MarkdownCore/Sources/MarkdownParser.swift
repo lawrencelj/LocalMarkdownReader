@@ -345,7 +345,9 @@ private struct AttributedStringRenderer {
             for child in link.children {
                 result.append(renderInline(child))
             }
-            result.underlineStyle = .single
+            // Note: underlineStyle requires SwiftUI which isn't available in pure Foundation contexts.
+            // The link attribute will indicate this is a hyperlink, and SwiftUI Text views will
+            // style it appropriately when rendering.
             if let destination = link.destination {
                 result.link = URL(string: destination)
             }

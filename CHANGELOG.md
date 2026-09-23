@@ -2,6 +2,38 @@
 
 All application and controlled design-document changes are recorded here. Entries are append-only.
 
+## 2026-09-02 — Version 1.0.10 (Build 11)
+
+### Category
+
+- Feature: Document export and text selection
+
+### Changes
+
+- Fixed rendered content in the right pane not being selectable. Removed overlay gesture that was blocking text selection from `singleBlockRow`, `listBlockView`, and `tableBlockView`.
+- Added document export functionality supporting Word (.docx), RTF, HTML, and PDF formats.
+- Added Export menu under File menu with keyboard shortcut Cmd+Shift+E for Word export.
+- Fixed Xcode 27 beta compatibility issue with Text view conformance.
+
+### Affected files
+
+- `Apps/MarkdownReader-macOS/MarkdownReaderApp.swift` (added Export menu integration)
+- `Apps/MarkdownReader-macOS/ContentView.swift` (Xcode 27 beta Text fix)
+- `Apps/MarkdownReader-macOS/DocumentExporter.swift` (new file)
+- `Packages/ViewerUI/Sources/ViewerUI/DocumentViewer/DocumentViewer.swift` (text selection fix)
+- `Packages/MarkdownCore/Sources/MarkdownParser.swift` (removed SwiftUI-only underlineStyle for test compatibility)
+
+### Validation
+
+- Four-suite gate:
+  - Unit tests: 143 tests (7 skipped), 0 failures, exit 0
+  - Functional tests: 77 tests, 0 failures, exit 0
+  - Integration tests: 30 tests (4 skipped), 0 failures, exit 0
+  - Security tests: 20 tests, 0 failures, exit 0
+- Full test suite: 276 tests, 11 skipped, 0 failures, exit 0
+- Candidate SHA: b3e9d8ef1731d94e54da99b4089c41ffa3b292d9
+- Independent verification: ACCEPT (verifier confirmed all acceptance criteria met)
+
 ## 2026-09-02 — Version 1.0.9 (Build 10)
 
 ### Category
