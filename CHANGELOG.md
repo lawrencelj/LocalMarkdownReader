@@ -26,8 +26,8 @@ All application and controlled design-document changes are recorded here. Entrie
   - Integration tests: 30 tests (4 skipped), 0 failures, exit 0
   - Security tests: 20 tests, 0 failures, exit 0
 - Full test suite: 276 tests, 11 skipped, 0 failures, exit 0
-- Candidate SHA: pending commit
-- Independent verification: pending
+- Candidate SHA: 8f3e03a087dbfb5281ca7419e8f56121cfe4ee4b
+- Independent verification: ACCEPT (verifier confirmed all acceptance criteria met)
 
 ## 2026-09-02 — Version 1.0.10 (Build 11)
 
